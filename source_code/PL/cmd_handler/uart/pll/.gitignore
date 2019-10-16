@@ -1,0 +1,11 @@
+# dir
+/doc
+
+# generated files
+*.vh
+*.v
+*.veo
+*.vhdl
+*.xci
+*.xdc
+*.xml

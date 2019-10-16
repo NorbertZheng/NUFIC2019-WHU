@@ -34,6 +34,9 @@ module cmd_handler #(
 						TX_TRANSMIT	=	2'b10,
 						TX_WAIT		=	2'b11;
 
+	// PLL signals
+	wire clk_50m, sys_rst_n;
+
 	// uart_controller8bit signals
 	reg tx_vld, rx_ack;
 	wire tx_rdy, rx_rdy;
@@ -50,15 +53,15 @@ module cmd_handler #(
 	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_o;
 	// for debug
 	reg BlueTooth_State_reg;
-	always@ (posedge clk)
+	always@ (posedge clk_50m)
 		BlueTooth_State_reg <= BlueTooth_State;
 	(* mark_debug = "true" *)wire debug_BlueTooth_State = BlueTooth_State_reg;
 
 	// receive request(RX)
 	reg [1:0] cmd_handler_rx_state;
-	always@ (posedge clk)
+	always@ (posedge clk_50m)
 		begin
-		if (!rst_n)
+		if (!sys_rst_n)
 			begin
 			// state
 			cmd_handler_rx_state <= RX_IDLE;
@@ -138,9 +141,9 @@ module cmd_handler #(
 
 	// send response(TX)
 	reg [1:0] cmd_handler_tx_state;
-	always@ (posedge clk)
+	always@ (posedge clk_50m)
 		begin
-		if (!rst_n)
+		if (!sys_rst_n)
 			begin
 			// state
 			cmd_handler_tx_state <= TX_IDLE;
@@ -240,6 +243,14 @@ module cmd_handler #(
 			end
 		end
 
+	// PLL
+	pll m_pll (
+		.clk_50m		(clk_50m		),
+		.reset			(!rst_n			),
+		.locked			(sys_rst_n		),
+		.clk_in1		(clk			)
+	);
+
 	// BlueToothController
 	BlueToothController #(
 		.CONFIG_EN(CONFIG_EN),												// do not enable config
@@ -252,8 +263,8 @@ module cmd_handler #(
 		.RESPONSE_FIFO_DATA_WIDTH(RESPONSE_FIFO_DATA_WIDTH),				// the bit width of data we stored in the FIFO
 		.RESPONSE_FIFO_DATA_DEPTH_INDEX(RESPONSE_FIFO_DATA_DEPTH_INDEX)		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 	) m_BlueToothController (
-		.clk								(clk								),
-		.rst_n								(rst_n								),
+		.clk								(clk_50m								),
+		.rst_n								(sys_rst_n								),
 
 		// BlueTooth_Config
 		.BlueTooth_State					(BlueTooth_State					),
@@ -285,8 +296,8 @@ module cmd_handler #(
 		.CLK_FRE(CLK_FRE),			// 50MHz
 		.BAUD_RATE(PC_BAUD_RATE)	// 115200Hz
 	) m_uart_controller8bit (
-		.clk			(clk		),
-		.rst_n			(rst_n		),
+		.clk			(clk_50m		),
+		.rst_n			(sys_rst_n		),
 		.uart_rx		(uart_rx	),
 		.uart_tx		(uart_tx	),
 

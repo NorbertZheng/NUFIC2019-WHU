@@ -5,9 +5,9 @@ module uart_rx #(
 	input						clk				,	// clock input
 	input						rst_n			,	// asynchronous reset input, low active 
 	output	reg	[7:0]			rx_data			,	// received serial data
-	output	reg					rx_data_valid	,	// received serial data is valid
-	input						rx_data_ready	,	// data receiver module ready
-	input						rx_pin				// serial data input
+	output	reg					rx_rdy			,	// received serial data is valid
+	input						rx_ack			,	// data receiver module ready
+	input						uart_rx				// serial data input
 );
 
 	// calculates the clock cycle for baud rate 
@@ -19,11 +19,11 @@ module uart_rx #(
 	localparam		S_STOP		=	4;				// stop bit
 	localparam		S_DATA		=	5;
 
-	reg rx_d0;										// delay 1 clock for rx_pin
+	reg rx_d0;										// delay 1 clock for uart_rx
 	reg rx_d1;										// delay 1 clock for rx_d0
 	reg[2:0] bit_cnt;								// bit counter
 	reg[2:0] state, next_state;
-	wire rx_negedge;								// negedge of rx_pin
+	wire rx_negedge;								// negedge of uart_rx
 	reg[7:0] rx_bits;								// temporary storage of received data
 	reg[15:0] cycle_cnt;							// baud counter
 
@@ -38,7 +38,7 @@ module uart_rx #(
 			end
 		else
 			begin
-			rx_d0 <= rx_pin;
+			rx_d0 <= uart_rx;
 			rx_d1 <= rx_d0;
 			end
 		end
@@ -75,7 +75,7 @@ module uart_rx #(
 				else
 					next_state <= S_STOP;
 			S_DATA:
-				if (rx_data_ready)						// data receive complete
+				if (rx_ack)						// data receive complete
 					next_state <= S_IDLE;
 				else
 					next_state <= S_DATA;
@@ -87,11 +87,11 @@ module uart_rx #(
 	always@ (posedge clk or negedge rst_n)
 		begin
 		if (rst_n == 1'b0)
-			rx_data_valid <= 1'b0;
+			rx_rdy <= 1'b0;
 		else if (state == S_STOP && next_state != state)
-			rx_data_valid <= 1'b1;
-		else if (state == S_DATA && rx_data_ready)
-			rx_data_valid <= 1'b0;
+			rx_rdy <= 1'b1;
+		else if (state == S_DATA && rx_ack)
+			rx_rdy <= 1'b0;
 		end
 
 	always@ (posedge clk or negedge rst_n)
@@ -134,7 +134,7 @@ module uart_rx #(
 		if (rst_n == 1'b0)
 			rx_bits <= 8'd0;
 		else if (state == S_REC_BYTE && cycle_cnt == CYCLE/2 - 1)
-			rx_bits[bit_cnt] <= rx_pin;
+			rx_bits[bit_cnt] <= uart_rx;
 		else
 			rx_bits <= rx_bits; 
 		end

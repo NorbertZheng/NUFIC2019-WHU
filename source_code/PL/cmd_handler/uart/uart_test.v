@@ -1,6 +1,6 @@
 module uart_test #(
 	parameter		CLK_FRE				=	50,		// 50MHz
-					BAUD_RATE			=	115200,	// 115200Hz
+					BAUD_RATE			=	38400,	// 115200Hz
 					TX_DATA_BYTE_WIDTH	=	8,		// 8 bytes to transmit
 					RX_DATA_BYTE_WIDTH	=	8,		// 8 bytes to receive
 					DATA_WIDTH			=	64,		// the bit width of data we stored in the FIFO

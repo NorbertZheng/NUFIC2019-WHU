@@ -20,30 +20,72 @@ module uart_controller8bit #(
 	output									rx_rdy				// send signal to receiver buffer that data is ready
 );
 
+	/*// uart_rx signals
+	wire rx_clk_bps, rx_bps_start;
+
+	// uart_tx signals
+	wire tx_clk_bps, tx_bps_start;
+
+	// uart_rx_speed_setting
+	speed_setting #(
+		.CLK_FRE(CLK_FRE),		// 50MHz(from PLL)
+		.BAUD_RATE(BAUD_RATE)
+	) m_uart_rx_speed_setting (
+		.clk						(clk			),
+		.rst_n						(rst_n			),
+
+		.bps_start					(rx_bps_start	),
+		.clk_bps					(rx_clk_bps		)
+	);
+
+	// uart_tx_speed_setting
+	speed_setting #(
+		.CLK_FRE(CLK_FRE),		// 50MHz(from PLL)
+		.BAUD_RATE(BAUD_RATE)
+	) m_uart_tx_speed_setting (
+		.clk						(clk			),
+		.rst_n						(rst_n			),
+
+		.bps_start					(tx_bps_start	),
+		.clk_bps					(tx_clk_bps		)
+	);*/
+
 	// uart_rx
 	uart_rx #(
-		.CLK_FRE(CLK_FRE),
+		.CLK_FRE(CLK_FRE),		// 50MHz(from PLL)
 		.BAUD_RATE(BAUD_RATE)
 	) m_uart_rx (
 		.clk						(clk			),
 		.rst_n						(rst_n			),
-		.rx_data					(rx_data		),		// wire [7:0]
-		.rx_data_valid				(rx_rdy			),
-		.rx_data_ready				(rx_ack			),
-		.rx_pin						(uart_rx		)
+
+		// speed_setting signals
+		//.clk_bps					(rx_clk_bps		),
+		//.bps_start					(rx_bps_start	),
+
+		// rx signals
+		.uart_rx					(uart_rx		),
+		.rx_ack						(rx_ack			),
+		.rx_data					(rx_data		),
+		.rx_rdy						(rx_rdy			)
 	);
 
 	// uart_tx
-	uart_tx # (
-		.CLK_FRE(CLK_FRE),
+	uart_tx #(
+		.CLK_FRE(CLK_FRE),		// 50MHz(from PLL)
 		.BAUD_RATE(BAUD_RATE)
 	) m_uart_tx (
 		.clk						(clk			),
 		.rst_n						(rst_n			),
-		.tx_data					(tx_data		),		// wire [7:0]
-		.tx_data_valid				(tx_vld			),
-		.tx_data_ready				(tx_rdy			),
-		.tx_pin						(uart_tx		)
+
+		// speed_setting signals
+		//.clk_bps					(tx_clk_bps		),
+		//.bps_start					(tx_bps_start	),
+
+		// tx signals
+		.tx_data					(tx_data		),
+		.tx_vld						(tx_vld			),
+		.tx_rdy						(tx_rdy			),
+		.uart_tx					(uart_tx		)
 	);
 
 endmodule

@@ -169,6 +169,19 @@ module BlueToothController #(
 
 	// send request(TX)
 	reg [1:0] BlueTooth_tx_state;
+	// for debug
+	reg BlueTooth_tx_bubble;
+	(* mark_debug = "true" *)wire [7:0] debug_BlueTooth_tx_data = BlueTooth_tx_data;
+	reg [31:0] tx_data_buffer;
+	(* mark_debug = "true" *)wire [31:0] debug_tx_data_buffer = tx_data_buffer;
+	always@ (posedge clk)
+		begin
+		if (!rst_n)
+			tx_data_buffer <= 32'b0;
+		else
+			if (BlueTooth_tx_vld)
+				tx_data_buffer <= {tx_data_buffer[23:0], BlueTooth_tx_data};
+		end
 	always@ (posedge clk)
 		begin
 		if (!rst_n)
@@ -180,13 +193,25 @@ module BlueToothController #(
 			// uart_controller8bit signals
 			BlueTooth_tx_vld <= 1'b0;
 			BlueTooth_tx_data <= 8'b0;
+			// for debug
+			BlueTooth_tx_bubble <= 1'b0;
 			end
 		else
 			begin
 			case (BlueTooth_tx_state)
 				TX_IDLE:
 					begin
-					if (!BlueTooth_request_FIFO_empty)			// request FIFO is not empty
+					if (BlueTooth_tx_bubble)						// bubble first
+						begin
+						// state
+						BlueTooth_tx_state <= TX_RDDATA;
+						// request FIFO signals
+						BlueTooth_request_FIFO_r_en <= 1'b0;		// not read
+						// uart_controller8bit signals
+						BlueTooth_tx_vld <= 1'b0;
+						BlueTooth_tx_data <= 8'b0;
+						end
+					else if (!BlueTooth_request_FIFO_empty)			// request FIFO is not empty
 						begin
 						// state
 						BlueTooth_tx_state <= TX_RDDATA;
@@ -221,21 +246,32 @@ module BlueToothController #(
 					begin
 					// request FIFO signals
 					BlueTooth_request_FIFO_r_en <= 1'b0;
-					if (BlueTooth_request_FIFO_data_o_vld)			// data is valid
+					if (BlueTooth_tx_bubble)						// bubble time!
 						begin
 						// state
 						BlueTooth_tx_state <= TX_WAIT;
 						// uart_controller8bit signals
 						BlueTooth_tx_vld <= 1'b1;
-						BlueTooth_tx_data <= BlueTooth_request_FIFO_data_o;
+						BlueTooth_tx_data <= 8'b0;
 						end
 					else
 						begin
-						// state
-						BlueTooth_tx_state <= TX_IDLE;
-						// uart_controller8bit signals
-						BlueTooth_tx_vld <= 1'b0;
-						BlueTooth_tx_data <= 8'b0;
+						if (BlueTooth_request_FIFO_data_o_vld)			// data is valid
+							begin
+							// state
+							BlueTooth_tx_state <= TX_WAIT;
+							// uart_controller8bit signals
+							BlueTooth_tx_vld <= 1'b1;
+							BlueTooth_tx_data <= BlueTooth_request_FIFO_data_o;
+							end
+						else
+							begin
+							// state
+							BlueTooth_tx_state <= TX_IDLE;
+							// uart_controller8bit signals
+							BlueTooth_tx_vld <= 1'b0;
+							BlueTooth_tx_data <= 8'b0;
+							end
 						end
 					end
 				TX_WAIT:
@@ -249,6 +285,8 @@ module BlueToothController #(
 						// uart_controller8bit signals
 						BlueTooth_tx_vld <= 1'b0;
 						BlueTooth_tx_data <= 8'b0;
+						// for debug
+						BlueTooth_tx_bubble <= ~BlueTooth_tx_bubble;
 						end
 					else											// wait for transmission complete
 						begin
@@ -266,6 +304,8 @@ module BlueToothController #(
 					// uart_controller8bit signals
 					BlueTooth_tx_vld <= 1'b0;
 					BlueTooth_tx_data <= 8'b0;
+					// for debug
+					BlueTooth_tx_bubble <= 1'b0;
 					end
 			endcase
 			end

@@ -2,12 +2,12 @@ module uart_tx #(
 	parameter			CLK_FRE		=	50,			// clock frequency(Mhz)
 	parameter			BAUD_RATE	=	115200		// serial baud rate
 ) (
-	input						clk,				// clock input
-	input						rst_n,				// asynchronous reset input, low active 
-	input		[7:0]			tx_data,			// data to send
-	input						tx_data_valid,		// data to be sent is valid
-	output	reg					tx_data_ready,		// send ready
-	output						tx_pin				// serial data output
+	input						clk				,	// clock input
+	input						rst_n			,	// asynchronous reset input, low active 
+	input		[7:0]			tx_data			,	// data to send
+	input						tx_vld			,	// data to be sent is valid
+	output	reg					tx_rdy			,	// send ready
+	output						uart_tx				// serial data output
 );
 
 	// calculates the clock cycle for baud rate 
@@ -24,7 +24,7 @@ module uart_tx #(
 	reg [7:0] tx_data_latch;						// latch data to send
 	reg [15:0] cycle_cnt;							// baud counter
 
-	assign tx_pin = tx_reg;
+	assign uart_tx = tx_reg;
 
 	always@ (posedge clk or negedge rst_n)
 		begin
@@ -38,7 +38,7 @@ module uart_tx #(
 		begin
 		case(state)
 			S_IDLE:
-				if (tx_data_valid == 1'b1)
+				if (tx_vld == 1'b1)
 					next_state <= S_START;
 				else
 					next_state <= S_IDLE;
@@ -66,15 +66,15 @@ module uart_tx #(
 		begin
 		if (rst_n == 1'b0)
 			begin
-			tx_data_ready <= 1'b0;
+			tx_rdy <= 1'b0;
 			end
 		else if (state == S_IDLE)
-			if (tx_data_valid == 1'b1)
-				tx_data_ready <= 1'b0;
+			if (tx_vld == 1'b1)
+				tx_rdy <= 1'b0;
 			else
-				tx_data_ready <= 1'b1;
+				tx_rdy <= 1'b1;
 		else if (state == S_STOP && cycle_cnt == CYCLE - 1)
-			tx_data_ready <= 1'b1;
+			tx_rdy <= 1'b1;
 		end
 
 	always@ (posedge clk or negedge rst_n)
@@ -83,7 +83,7 @@ module uart_tx #(
 			begin
 			tx_data_latch <= 8'd0;
 			end
-		else if (state == S_IDLE && tx_data_valid == 1'b1)
+		else if (state == S_IDLE && tx_vld == 1'b1)
 			tx_data_latch <= tx_data;
 		end
 
