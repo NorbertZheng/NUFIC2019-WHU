@@ -21,45 +21,27 @@ module BlueToothController #(
 	output												BlueTooth_Key,
 	output												BlueTooth_Rxd,
 	input												BlueTooth_Txd,
+	output												BlueTooth_Vcc,
+	output												BlueTooth_Gnd,
 
 	// request FIFO signals
-	input		[REQUEST_FIFO_DATA_WIDTH - 1:0]			BlueTooth_request_FIFO_data_i,
-	input												BlueTooth_request_FIFO_data_i_vld,
-	output												BlueTooth_request_FIFO_data_i_rdy,
+	input		[REQUEST_FIFO_DATA_WIDTH - 1:0]			cmd_handler_BlueTooth_request_FIFO_data_i,
+	input												cmd_handler_BlueTooth_request_FIFO_data_i_vld,
+	output												cmd_handler_BlueTooth_request_FIFO_data_i_rdy,
 	// for debug
-	output												BlueTooth_request_FIFO_full,
-	output												BlueTooth_request_FIFO_empty,
-	output		[REQUEST_FIFO_DATA_DEPTH_INDEX - 1:0]	BlueTooth_request_FIFO_surplus,
+	output												cmd_handler_BlueTooth_request_FIFO_full,
+	output												cmd_handler_BlueTooth_request_FIFO_empty,
+	output		[REQUEST_FIFO_DATA_DEPTH_INDEX - 1:0]	cmd_handler_BlueTooth_request_FIFO_surplus,
 
 	// response FIFO signals
-	input												BlueTooth_response_FIFO_r_en,
-	output		[RESPONSE_FIFO_DATA_WIDTH - 1:0]		BlueTooth_response_FIFO_data_o,
-	output												BlueTooth_response_FIFO_data_o_vld,
+	input												cmd_handler_BlueTooth_response_FIFO_r_en,
+	output		[RESPONSE_FIFO_DATA_WIDTH - 1:0]		cmd_handler_BlueTooth_response_FIFO_data_o,
+	output												cmd_handler_BlueTooth_response_FIFO_data_o_vld,
 	// for debug
-	output												BlueTooth_response_FIFO_full,
-	output												BlueTooth_response_FIFO_empty,
-	output		[RESPONSE_FIFO_DATA_DEPTH_INDEX - 1:0]	BlueTooth_response_FIFO_surplus
+	output												cmd_handler_BlueTooth_response_FIFO_full,
+	output												cmd_handler_BlueTooth_response_FIFO_empty,
+	output		[RESPONSE_FIFO_DATA_DEPTH_INDEX - 1:0]	cmd_handler_BlueTooth_response_FIFO_surplus
 );
-
-	wire BlueTooth_init_flag, BlueToothInitializer_init_flag, BlueToothInitializer_Key;
-	generate
-		begin
-		if (CONFIG_EN)
-			begin
-			// BlueToothInitializer
-			BlueToothInitializer #(
-			) m_BlueToothInitializer (
-				.clk								(clk							),
-				.rst_n								(rst_n							),
-
-				.BlueToothInitializer_init_flag		(BlueToothInitializer_init_flag	),
-				.BlueToothInitializer_Key			(BlueToothInitializer_Key		)
-			);
-			end
-		end
-	endgenerate
-	assign BlueTooth_init_flag = CONFIG_EN ? BlueToothInitializer_init_flag : 1'b1;
-	assign BlueTooth_Key = CONFIG_EN ? BlueToothInitializer_Key : 1'b0;
 
 	localparam			RX_IDLE		=	2'b00,
 						RX_WRDATA	=	2'b01,
@@ -71,19 +53,110 @@ module BlueToothController #(
 
 	// request FIFO signals
 	reg BlueTooth_request_FIFO_r_en;
-	wire BlueTooth_request_FIFO_data_o_vld;
-	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_o;
+	wire BlueTooth_request_FIFO_data_o_vld, BlueTooth_request_FIFO_data_i_vld, BlueTooth_request_FIFO_data_i_rdy;
+	wire BlueTooth_request_FIFO_full, BlueTooth_request_FIFO_empty;
+	wire [REQUEST_FIFO_DATA_DEPTH_INDEX - 1:0] BlueTooth_request_FIFO_surplus;
+	wire [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_o, BlueTooth_request_FIFO_data_i;
 
 	// response FIFO signals
-	wire BlueTooth_response_FIFO_data_i_rdy;
+	wire BlueTooth_response_FIFO_data_i_rdy, BlueTooth_response_FIFO_r_en, BlueTooth_response_FIFO_data_o_vld;
+	wire BlueTooth_response_FIFO_full, BlueTooth_response_FIFO_empty;
 	reg BlueTooth_response_FIFO_data_i_vld;
+	wire [RESPONSE_FIFO_DATA_DEPTH_INDEX - 1:0] BlueTooth_response_FIFO_surplus;
 	reg [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_i;
+	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_o;
 
 	// uart_controller8bit signals
 	wire BlueTooth_tx_rdy, BlueTooth_rx_rdy;
 	reg BlueTooth_tx_vld, BlueTooth_rx_ack;
 	wire [7:0] BlueTooth_rx_data;
 	reg [7:0] BlueTooth_tx_data;
+
+	// BlueToothInitializer generator
+	wire BlueTooth_init_flag, BlueToothInitializer_init_flag;
+	wire BlueToothInitializer_Key, BlueToothInitializer_Vcc, BlueToothInitializer_Gnd;
+	wire BlueToothInitializer_BlueTooth_request_FIFO_data_i_vld, BlueToothInitializer_BlueTooth_request_FIFO_data_i_rdy;
+	wire [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueToothInitializer_BlueTooth_request_FIFO_data_i;
+	wire BlueToothInitializer_BlueTooth_request_FIFO_full, BlueToothInitializer_BlueTooth_request_FIFO_empty;
+	wire [REQUEST_FIFO_DATA_DEPTH_INDEX - 1:0] BlueToothInitializer_BlueTooth_request_FIFO_surplus;
+	wire BlueToothInitializer_BlueTooth_response_FIFO_r_en, BlueToothInitializer_BlueTooth_response_FIFO_data_o_vld;
+	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueToothInitializer_BlueTooth_response_FIFO_data_o;
+	wire BlueToothInitializer_BlueTooth_response_FIFO_full, BlueToothInitializer_BlueTooth_response_FIFO_empty;
+	wire [RESPONSE_FIFO_DATA_DEPTH_INDEX - 1:0] BlueToothInitializer_BlueTooth_response_FIFO_surplus;
+	generate
+		begin
+		if (CONFIG_EN)
+			begin
+			// BlueToothInitializer
+			BlueToothInitializer #(
+				.REQUEST_FIFO_DATA_WIDTH(REQUEST_FIFO_DATA_WIDTH),					// the bit width of data we stored in the FIFO
+				.REQUEST_FIFO_DATA_DEPTH_INDEX(REQUEST_FIFO_DATA_DEPTH_INDEX),		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
+				.RESPONSE_FIFO_DATA_WIDTH(RESPONSE_FIFO_DATA_WIDTH),				// the bit width of data we stored in the FIFO
+				.RESPONSE_FIFO_DATA_DEPTH_INDEX(RESPONSE_FIFO_DATA_DEPTH_INDEX)
+			) m_BlueToothInitializer (
+				.clk														(clk													),
+				.rst_n														(rst_n													),
+
+				.BlueToothInitializer_init_flag								(BlueToothInitializer_init_flag							),
+
+				// BlueTooth mode set signals
+				.BlueToothInitializer_Key									(BlueToothInitializer_Key								),
+				.BlueToothInitializer_Vcc									(BlueToothInitializer_Vcc								),
+				.BlueToothInitializer_Gnd									(BlueToothInitializer_Gnd								),
+
+				// BlueTooth request FIFO signals
+				.BlueToothInitializer_BlueTooth_request_FIFO_data_i			(BlueToothInitializer_BlueTooth_request_FIFO_data_i		),
+				.BlueToothInitializer_BlueTooth_request_FIFO_data_i_vld		(BlueToothInitializer_BlueTooth_request_FIFO_data_i_vld	),
+				.BlueToothInitializer_BlueTooth_request_FIFO_data_i_rdy		(BlueToothInitializer_BlueTooth_request_FIFO_data_i_rdy	),
+				// for debug
+				.BlueToothInitializer_BlueTooth_request_FIFO_full			(BlueToothInitializer_BlueTooth_request_FIFO_full		),
+				.BlueToothInitializer_BlueTooth_request_FIFO_empty			(BlueToothInitializer_BlueTooth_request_FIFO_empty		),
+				.BlueToothInitializer_BlueTooth_request_FIFO_surplus		(BlueToothInitializer_BlueTooth_request_FIFO_surplus	),
+
+				// BlueTooth response FIFO signals
+				.BlueToothInitializer_BlueTooth_response_FIFO_r_en			(BlueToothInitializer_BlueTooth_response_FIFO_r_en		),
+				.BlueToothInitializer_BlueTooth_response_FIFO_data_o		(BlueToothInitializer_BlueTooth_response_FIFO_data_o	),
+				.BlueToothInitializer_BlueTooth_response_FIFO_data_o_vld	(BlueToothInitializer_BlueTooth_response_FIFO_data_o_vld),
+				// for debug
+				.BlueToothInitializer_BlueTooth_response_FIFO_full			(BlueToothInitializer_BlueTooth_response_FIFO_full		),
+				.BlueToothInitializer_BlueTooth_response_FIFO_empty			(BlueToothInitializer_BlueTooth_response_FIFO_empty		),
+				.BlueToothInitializer_BlueTooth_response_FIFO_surplus		(BlueToothInitializer_BlueTooth_response_FIFO_surplus	)
+			);
+			end
+		end
+	endgenerate
+	assign BlueTooth_init_flag = CONFIG_EN ? BlueToothInitializer_init_flag : 1'b1;
+	assign BlueTooth_Key = CONFIG_EN ? BlueToothInitializer_Key : 1'b0;
+	assign BlueTooth_Vcc = CONFIG_EN ? BlueToothInitializer_Vcc : 1'b1;
+	assign BlueTooth_Gnd = CONFIG_EN ? BlueToothInitializer_Gnd : 1'b0;
+
+	// for request FIFO
+	// input
+	assign BlueTooth_request_FIFO_data_i = BlueTooth_init_flag ? cmd_handler_BlueTooth_request_FIFO_data_i : BlueToothInitializer_BlueTooth_request_FIFO_data_i;
+	assign BlueTooth_request_FIFO_data_i_vld = BlueTooth_init_flag ? cmd_handler_BlueTooth_request_FIFO_data_i_vld : BlueToothInitializer_BlueTooth_request_FIFO_data_i_vld;
+	// output
+	assign BlueToothInitializer_BlueTooth_request_FIFO_data_i_rdy = BlueTooth_init_flag ? 1'b0 : BlueTooth_request_FIFO_data_i_rdy;
+	assign cmd_handler_BlueTooth_request_FIFO_data_i_rdy = BlueTooth_init_flag ? BlueTooth_request_FIFO_data_i_rdy : 1'b0;
+	assign BlueToothInitializer_BlueTooth_request_FIFO_full = BlueTooth_init_flag ? 1'b1 : BlueTooth_request_FIFO_full;
+	assign cmd_handler_BlueTooth_request_FIFO_full = BlueTooth_init_flag ? BlueTooth_request_FIFO_full : 1'b1;
+	assign BlueToothInitializer_BlueTooth_request_FIFO_empty = BlueTooth_init_flag ? 1'b1 : BlueTooth_request_FIFO_empty;
+	assign cmd_handler_BlueTooth_request_FIFO_empty = BlueTooth_init_flag ? BlueTooth_request_FIFO_empty : 1'b1;
+	assign BlueToothInitializer_BlueTooth_request_FIFO_surplus = BlueTooth_init_flag ? {REQUEST_FIFO_DATA_DEPTH_INDEX{1'b0}} : BlueTooth_request_FIFO_surplus;
+	assign cmd_handler_BlueTooth_request_FIFO_surplus = BlueTooth_init_flag ? BlueTooth_request_FIFO_surplus : {REQUEST_FIFO_DATA_DEPTH_INDEX{1'b0}};
+	// for response FIFO
+	// input
+	assign BlueTooth_response_FIFO_r_en = BlueTooth_init_flag ? cmd_handler_BlueTooth_response_FIFO_r_en : BlueToothInitializer_BlueTooth_response_FIFO_r_en;
+	// output
+	assign BlueToothInitializer_BlueTooth_response_FIFO_data_o = BlueTooth_init_flag ? {RESPONSE_FIFO_DATA_WIDTH{1'b0}} : BlueTooth_response_FIFO_data_o;
+	assign cmd_handler_BlueTooth_response_FIFO_data_o = BlueTooth_init_flag ? BlueTooth_response_FIFO_data_o : {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
+	assign BlueToothInitializer_BlueTooth_response_FIFO_data_o_vld = BlueTooth_init_flag ? 1'b0 : BlueTooth_response_FIFO_data_o_vld;
+	assign cmd_handler_BlueTooth_response_FIFO_data_o_vld = BlueTooth_init_flag ? BlueTooth_response_FIFO_data_o_vld : 1'b0;
+	assign BlueToothInitializer_BlueTooth_response_FIFO_full = BlueTooth_init_flag ? 1'b1 : BlueTooth_response_FIFO_full;
+	assign cmd_handler_BlueTooth_response_FIFO_full = BlueTooth_init_flag ? BlueTooth_response_FIFO_full : 1'b1;
+	assign BlueToothInitializer_BlueTooth_response_FIFO_empty = BlueTooth_init_flag ? 1'b1 : BlueTooth_response_FIFO_empty;
+	assign cmd_handler_BlueTooth_response_FIFO_empty = BlueTooth_init_flag ? BlueTooth_response_FIFO_empty : 1'b1;
+	assign BlueToothInitializer_BlueTooth_response_FIFO_surplus = BlueTooth_init_flag ? {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b0}} : BlueTooth_response_FIFO_surplus;
+	assign cmd_handler_BlueTooth_response_FIFO_surplus = BlueTooth_init_flag ? BlueTooth_response_FIFO_surplus : {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b0}};
 
 	// receive response(RX)
 	reg [1:0] BlueTooth_rx_state;

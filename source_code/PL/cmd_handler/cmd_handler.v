@@ -1,9 +1,9 @@
 module cmd_handler #(
 	parameter		// config enable
-					CONFIG_EN							=	1,		// do not enable config
+					CONFIG_EN							=	0,		// do not enable config
 					// config
 					CLK_FRE								=	50,		// 50MHz
-					BAUD_RATE							=	38400,	// 9600Hz (4800, 19200, 38400, 57600, 115200, 38400...)
+					BAUD_RATE							=	9600,	// 9600Hz (4800, 19200, 38400, 57600, 115200, 38400...)
 					STOP_BIT							=	0,		// 0 : 1-bit stop-bit, 1 : 2-bit stop-bit
 					CHECK_BIT							=	0,		// 0 : no check-bit, 1 : odd, 2 : even
 					// default	9600	0	0
@@ -11,7 +11,7 @@ module cmd_handler #(
 					REQUEST_FIFO_DATA_WIDTH				=	8,		// the bit width of data we stored in the FIFO
 					REQUEST_FIFO_DATA_DEPTH_INDEX		=	5,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 					RESPONSE_FIFO_DATA_WIDTH			=	8,		// the bit width of data we stored in the FIFO
-					RESPONSE_FIFO_DATA_DEPTH_INDEX		=	5,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
+					RESPONSE_FIFO_DATA_DEPTH_INDEX		=	10,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 					// uart connected with PC
 					PC_BAUD_RATE						=	115200	// 115200Hz
 ) (
@@ -23,7 +23,9 @@ module cmd_handler #(
 	input									BlueTooth_State		,
 	output									BlueTooth_Key		,
 	output									BlueTooth_Rxd		,
-	input									BlueTooth_Txd		
+	input									BlueTooth_Txd		,
+	output									BlueTooth_Vcc		,
+	output									BlueTooth_Gnd		
 );
 
 	localparam			RX_IDLE		=	2'b00,
@@ -263,32 +265,34 @@ module cmd_handler #(
 		.RESPONSE_FIFO_DATA_WIDTH(RESPONSE_FIFO_DATA_WIDTH),				// the bit width of data we stored in the FIFO
 		.RESPONSE_FIFO_DATA_DEPTH_INDEX(RESPONSE_FIFO_DATA_DEPTH_INDEX)		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 	) m_BlueToothController (
-		.clk								(clk_50m								),
-		.rst_n								(sys_rst_n								),
+		.clk											(clk_50m								),
+		.rst_n											(sys_rst_n								),
 
 		// BlueTooth_Config
-		.BlueTooth_State					(BlueTooth_State					),
-		.BlueTooth_Key						(BlueTooth_Key						),
-		.BlueTooth_Rxd						(BlueTooth_Rxd						),
-		.BlueTooth_Txd						(BlueTooth_Txd						),
+		.BlueTooth_State								(BlueTooth_State					),
+		.BlueTooth_Key									(BlueTooth_Key						),
+		.BlueTooth_Rxd									(BlueTooth_Rxd						),
+		.BlueTooth_Txd									(BlueTooth_Txd						),
+		.BlueTooth_Vcc									(BlueTooth_Vcc						),
+		.BlueTooth_Gnd									(BlueTooth_Gnd						),
 
 		// request FIFO signals
-		.BlueTooth_request_FIFO_data_i		(BlueTooth_request_FIFO_data_i		),
-		.BlueTooth_request_FIFO_data_i_vld	(BlueTooth_request_FIFO_data_i_vld	),
-		.BlueTooth_request_FIFO_data_i_rdy	(BlueTooth_request_FIFO_data_i_rdy	),
+		.cmd_handler_BlueTooth_request_FIFO_data_i		(BlueTooth_request_FIFO_data_i		),
+		.cmd_handler_BlueTooth_request_FIFO_data_i_vld	(BlueTooth_request_FIFO_data_i_vld	),
+		.cmd_handler_BlueTooth_request_FIFO_data_i_rdy	(BlueTooth_request_FIFO_data_i_rdy	),
 		// for debug
-		.BlueTooth_request_FIFO_full		(BlueTooth_request_FIFO_full		),
-		.BlueTooth_request_FIFO_empty		(BlueTooth_request_FIFO_empty		),
-		.BlueTooth_request_FIFO_surplus		(BlueTooth_request_FIFO_surplus		),
+		.cmd_handler_BlueTooth_request_FIFO_full		(BlueTooth_request_FIFO_full		),
+		.cmd_handler_BlueTooth_request_FIFO_empty		(BlueTooth_request_FIFO_empty		),
+		.cmd_handler_BlueTooth_request_FIFO_surplus		(BlueTooth_request_FIFO_surplus		),
 
 		// response FIFO signals
-		.BlueTooth_response_FIFO_r_en		(BlueTooth_response_FIFO_r_en		),
-		.BlueTooth_response_FIFO_data_o		(BlueTooth_response_FIFO_data_o		),
-		.BlueTooth_response_FIFO_data_o_vld	(BlueTooth_response_FIFO_data_o_vld	),
+		.cmd_handler_BlueTooth_response_FIFO_r_en		(BlueTooth_response_FIFO_r_en		),
+		.cmd_handler_BlueTooth_response_FIFO_data_o		(BlueTooth_response_FIFO_data_o		),
+		.cmd_handler_BlueTooth_response_FIFO_data_o_vld	(BlueTooth_response_FIFO_data_o_vld	),
 		// for debug
-		.BlueTooth_response_FIFO_full		(BlueTooth_response_FIFO_full		),
-		.BlueTooth_response_FIFO_empty		(BlueTooth_response_FIFO_empty		),
-		.BlueTooth_response_FIFO_surplus	(BlueTooth_response_FIFO_surplus	)
+		.cmd_handler_BlueTooth_response_FIFO_full		(BlueTooth_response_FIFO_full		),
+		.cmd_handler_BlueTooth_response_FIFO_empty		(BlueTooth_response_FIFO_empty		),
+		.cmd_handler_BlueTooth_response_FIFO_surplus	(BlueTooth_response_FIFO_surplus	)
 	);
 
 	// uart_controller8bit
