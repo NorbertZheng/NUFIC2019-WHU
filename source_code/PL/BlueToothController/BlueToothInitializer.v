@@ -60,11 +60,6 @@ module BlueToothInitializer #(
 	reg [143:0] BlueToothInitializer_cmd_ATROLE_buffer;
 	// Expecting Response
 	reg [31:0] BlueToothInitializer_exp_res_buffer;
-	// for debug
-	(* mark_debug = "true" *)wire [1:0] debug_BlueToothInitializer_state = BlueToothInitializer_state;
-	(* mark_debug = "true" *)wire debug_BlueToothInitializer_Key = BlueToothInitializer_Key;
-	(* mark_debug = "true" *)wire debug_BlueToothInitializer_Vcc = BlueToothInitializer_Vcc;
-	(* mark_debug = "true" *)wire debug_BlueToothInitializer_Gnd = BlueToothInitializer_Gnd;
 	always@ (posedge clk)
 		begin
 		if (!rst_n)
