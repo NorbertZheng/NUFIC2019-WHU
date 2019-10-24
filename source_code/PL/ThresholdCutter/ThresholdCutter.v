@@ -90,12 +90,15 @@ module ThresholdCutter #(
 	reg ThresholdCutterWindow_data_wen;
 
 	// BlueToothController signals
-	reg BlueTooth_request_FIFO_data_i_vld, BlueTooth_response_FIFO_r_en;
+	// reg BlueTooth_request_FIFO_data_i_vld, BlueTooth_response_FIFO_r_en;
+	reg BlueTooth_response_FIFO_r_en;
+	wire BlueTooth_request_FIFO_data_i_vld = 1'b0;
 	wire BlueTooth_request_FIFO_data_i_rdy, BlueTooth_request_FIFO_full, BlueTooth_request_FIFO_empty;
 	wire BlueTooth_response_FIFO_data_o_vld, BlueTooth_response_FIFO_full, BlueTooth_response_FIFO_empty;
 	wire [REQUEST_FIFO_DATA_DEPTH_INDEX - 1:0] BlueTooth_request_FIFO_surplus;
 	wire [RESPONSE_FIFO_DATA_DEPTH_INDEX - 1:0] BlueTooth_response_FIFO_surplus;
-	reg [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i;
+	// reg [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i;
+	wire [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i = {REQUEST_FIFO_DATA_WIDTH{1'b0}};;
 	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_o;
 	// for debug
 	reg BlueTooth_State_reg;

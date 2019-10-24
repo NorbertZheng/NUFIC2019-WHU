@@ -88,7 +88,8 @@ module ThresholdCutterWindow #(
 	reg window_data_fulfill;									// when first fulfill it, set to 1'b1, and never change
 	reg [WINDOW_DEPTH_INDEX - 1:0] valid_cnt;					// when break_flag, set to 0, and set window_data_fulfill to 0
 	reg data_wen_delay;
-	reg [127:0] preset_sequence = PRESET_SEQUENCE;
+	// reg [127:0] preset_sequence = PRESET_SEQUENCE;
+	reg [63:0] preset_sequence = PRESET_SEQUENCE;
 	reg write_tag;
 	// for debug
 	(* mark_debug = "true" *)wire [WINDOW_WIDTH - 1:0] debug_window_data[WINDOW_DEPTH - 1:0];
@@ -235,7 +236,7 @@ module ThresholdCutterWindow #(
 					block_ptr <= block_ptr + 1'b1;
 					// for bram
 					bram_wen <= 1'b1;
-					bram_data_i <= {248'h0, preset_sequence[block_no[3:0]]};
+					bram_data_i <= {248'h0, preset_sequence[block_no[2:0]]};			/////////////////////////////////////////////////
 					// for dram
 					write_tag <= 1'b0;
 					end

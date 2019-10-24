@@ -1,3 +1,4 @@
+`timescale 1ns/1ns
 module debug_ThresholdCutter #(
 	parameter		// config enable
 					CONFIG_EN							=	0,		// do not enable config
@@ -15,19 +16,19 @@ module debug_ThresholdCutter #(
 					// uart connected with PC
 					PC_BAUD_RATE						=	115200,	// 115200Hz
 					// enable simulation
-					SIM_ENABLE							=	0,				// enable simulation
+					SIM_ENABLE							=	1,				// enable simulation
 					// parameter for window
 					WINDOW_DEPTH_INDEX					=	7,				// support up to 128 windows
 					WINDOW_DEPTH						=	100,			// 100 windows
 					WINDOW_WIDTH						=	(32 << 3),		// 32B window
 					THRESHOLD							=	32'h0010_0000,	// threshold
-					BLOCK_NUM_INDEX						=	3,				// 2 ** 6 == 64 blocks		// 16	// 8
+					BLOCK_NUM_INDEX						=	4,				// 2 ** 6 == 64 blocks		// 16
 					// parameter for package
 					A_OFFSET							=	2,				// A's offset
 					// parameter for square
 					SQUARE_SRC_DATA_WIDTH				=	16,				// square src data width
 					// parameter for preset-sequence
-					PRESET_SEQUENCE						=	64'h00_01_02_03_04_05_06_07,	// 128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
+					PRESET_SEQUENCE						=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
 					// parameter for package
 					PACKAGE_SIZE						=	11,
 					PACKAGE_NUM							=	4
@@ -68,6 +69,14 @@ module debug_ThresholdCutter #(
 	output									s_axi_rvalid		,
 	input									s_axi_rready		*/
 );
+
+	// testsuite
+	always # 50
+		clk = ~clk;
+
+	initial
+		begin
+		
 
 	// ThresholdCutter
 	ThresholdCutter #(
