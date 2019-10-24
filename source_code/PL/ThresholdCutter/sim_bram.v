@@ -1,8 +1,9 @@
 module sim_bram #(
 	parameter		BLOCK_NUM_INDEX		=	6,			// 2 ** 6 == 64 blocks
 					BLOCK_DEPTH_INDEX	=	(7 + 2),	// 2 ** 9 == 512( * 32bit(4B))
-	`define			BLOCK_INDEX			1 << (BLOCK_NUM_INDEX + BLOCK_DEPTH_INDEX)
-					BLOCK_WIDTH			=	32			// 32bit -> 4B
+	`define			BLOCK_INDEX			(BLOCK_NUM_INDEX + BLOCK_DEPTH_INDEX)
+	`define			BLOCK_SIZE			(1 << (BLOCK_NUM_INDEX + BLOCK_DEPTH_INDEX))
+					BLOCK_WIDTH			=	(32 << 3)	// 32bit -> 4B
 ) (
 	input								clk			,
 
@@ -16,7 +17,7 @@ module sim_bram #(
 	output		[BLOCK_WIDTH - 1:0]		bram_data_o	
 );
 
-	reg [BLOCK_WIDTH - 1:0] sim_bram_data[`BLOCK_INDEX - 1:0];
+	reg [BLOCK_WIDTH - 1:0] sim_bram_data[`BLOCK_SIZE - 1:0];
 
 	always@ (posedge clk)
 		begin

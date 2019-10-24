@@ -1,15 +1,19 @@
 `timescale 1ns/1ns
 module test_ThresholdCutterWindow #(
-	parameter		// parameter for window
+	parameter		// enable simulation
+					SIM_ENABLE				=	1,				// enable simulation
+					// parameter for window
 					WINDOW_DEPTH_INDEX		=	7,				// support up to 128 windows
 					WINDOW_DEPTH			=	100,			// 100 windows
 					WINDOW_WIDTH			=	(32 << 3),		// 32-B window
 					THRESHOLD				=	32'h0010_0000,	// threshold
-					BLOCK_NUM_INDEX			=	6,				// 2 ** 6 == 64 blocks
+					BLOCK_NUM_INDEX			=	4,				// 2 ** 6 == 64 blocks
 					// parameter for package
 					A_OFFSET				=	2,				// A's offset
 					// parameter for square
-					SQUARE_SRC_DATA_WIDTH	=	16				// square src data width
+					SQUARE_SRC_DATA_WIDTH	=	16,				// square src data width
+					// parameter for preset-sequence
+					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05
 	`define			sim_window
 ) (
 
@@ -4648,13 +4652,15 @@ module test_ThresholdCutterWindow #(
 
 	// ThresholdCutterWindow
 	ThresholdCutterWindow #(
+		.SIM_ENABLE(SIM_ENABLE),						// enable simulation
 		.WINDOW_DEPTH_INDEX(WINDOW_DEPTH_INDEX),		// support up to 128 windows
 		.WINDOW_DEPTH(WINDOW_DEPTH),					// 100 windows
 		.WINDOW_WIDTH(WINDOW_WIDTH),					// 32-bit window
 		.THRESHOLD(THRESHOLD),							// threshold
 		.BLOCK_NUM_INDEX(BLOCK_NUM_INDEX),				// 2 ** 6 == 64 blocks
 		.A_OFFSET(A_OFFSET),							// A's offset
-		.SQUARE_SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH)	// square src data width
+		.SQUARE_SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH),	// square src data width
+		.PRESET_SEQUENCE(PRESET_SEQUENCE)				// preset-sequence
 	) m_ThresholdCutterWindow (
 		.clk			(clk					),
 		.rst_n			(rst_n					),
