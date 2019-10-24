@@ -16,14 +16,16 @@ module ThresholdCutterWindow #(
 	`define			A_BIT_OFFSET			(`A_BYTE_OFFSET << 3)
 					// parameter for square
 					SQUARE_SRC_DATA_WIDTH	=	16,				// square src data width
+	`ifndef			SQUARE_RES_DATA_WIDTH
 	`define			SQUARE_RES_DATA_WIDTH	(SQUARE_SRC_DATA_WIDTH << 1)
+	`endif
 					// parameter for preset-sequence
 					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05
 ) (
 	input								clk,
 	input								rst_n,
 
-	input		[WINDOW_WIDTH - 1:0]	data_i,
+	input		[WINDOW_WIDTH:0]		data_i,
 	input								data_wen,
 
 	output		[WINDOW_DEPTH - 1:0]	flag_o,
@@ -77,6 +79,7 @@ module ThresholdCutterWindow #(
 	// inner signals
 	integer j;
 	reg [WINDOW_WIDTH - 1:0] window_data[WINDOW_DEPTH - 1:0];
+	reg [WINDOW_DEPTH - 1:0] window_tag;
 	reg [WINDOW_DEPTH_INDEX - 1:0] ptr;							// point to next loc to write
 	// reg [WINDOW_DEPTH_INDEX - 1:0] ptrPlus1;					// next to write, restore it!!!
 	reg [`BLOCK_DEPTH_INDEX - 1:0] block_ptr;
@@ -97,7 +100,7 @@ module ThresholdCutterWindow #(
 		end
 	endgenerate
 
-	// energy flag_o
+	/*// energy flag_o
 	wire [`SQUARE_RES_DATA_WIDTH - 1:0] squareSum[WINDOW_DEPTH - 1:0];
 	wire [WINDOW_DEPTH - 1:0] squareSumCo;					// co signal by squareSum
 	wire [`SQUARE_RES_DATA_WIDTH - 1:0] tempSquareSum[WINDOW_DEPTH - 1:0];
@@ -173,7 +176,8 @@ module ThresholdCutterWindow #(
 		// energy flag_o
 		assign flag_o[i] = (squareSumCo[i] | tempSquareSumCo[i] | (squareSum[i] >= THRESHOLD));
 		end
-	endgenerate
+	endgenerate*/
+	assign flag_o = window_tag;
 
 	always@ (posedge clk)
 		begin
@@ -183,21 +187,23 @@ module ThresholdCutterWindow #(
 				begin
 				// inner signals
 				window_data[j] <= {WINDOW_WIDTH{1'b0}};
-				ptr <= {WINDOW_DEPTH_INDEX{1'b0}};
-				// ptrPlus1 <= 1;
-				block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};		// init as 0xffff, always point to the last write unit
-				block_no <= {BLOCK_NUM_INDEX{1'b0}};
-				window_data_fulfill <= 1'b0;
-				valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
-				data_wen_delay <= 1'b0;
-				// for bram
-				bram_wen <= 1'b0;
-				bram_data_i <= {WINDOW_WIDTH{1'b0}};
-				// for dram
-				write_tag <= 1'b0;
-				dram_wen <= 1'b0;
-				dram_data_i <= 8'b0;
 				end
+			// inner signals
+			window_tag <= {WINDOW_DEPTH{1'b0}};
+			ptr <= {WINDOW_DEPTH_INDEX{1'b0}};
+			// ptrPlus1 <= 1;
+			block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};		// init as 0xffff, always point to the last write unit
+			block_no <= {BLOCK_NUM_INDEX{1'b0}};
+			window_data_fulfill <= 1'b0;
+			valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
+			data_wen_delay <= 1'b0;
+			// for bram
+			bram_wen <= 1'b0;
+			bram_data_i <= {WINDOW_WIDTH{1'b0}};
+			// for dram
+			write_tag <= 1'b0;
+			// dram_wen <= 1'b0;
+			// dram_data_i <= 8'b0;
 			end
 		else
 			begin
@@ -205,7 +211,8 @@ module ThresholdCutterWindow #(
 			if (data_wen)		// write data
 				begin
 				// inner signals
-				window_data[ptr] <= data_i;
+				window_data[ptr] <= data_i[WINDOW_WIDTH:1];
+				window_tag[ptr] <= data_i[0];
 				valid_cnt <= valid_cnt + 1'b1;
 				if (ptr == WINDOW_DEPTH - 1)		ptr <= {WINDOW_DEPTH_INDEX{1'b0}};			// back up
 				else								ptr <= ptr + 1'b1;
@@ -217,8 +224,8 @@ module ThresholdCutterWindow #(
 					end
 				// for dram
 				write_tag <= 1'b0;
-				dram_wen <= 1'b0;
-				dram_data_i <= 8'b0;
+				// dram_wen <= 1'b0;
+				// dram_data_i <= 8'b0;
 				end
 			else
 				begin

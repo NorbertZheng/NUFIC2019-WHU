@@ -20,12 +20,16 @@ module ThresholdCutter #(
 					WINDOW_DEPTH_INDEX					=	7,				// support up to 128 windows
 					WINDOW_DEPTH						=	100,			// 100 windows
 					WINDOW_WIDTH						=	(32 << 3),		// 32B window
+	`define			WINDOW_SUB_WIDTH					(8 << 3)
 					THRESHOLD							=	32'h0010_0000,	// threshold
 					BLOCK_NUM_INDEX						=	4,				// 2 ** 6 == 64 blocks		// 16
 					// parameter for package
 					A_OFFSET							=	2,				// A's offset
 					// parameter for square
 					SQUARE_SRC_DATA_WIDTH				=	16,				// square src data width
+	`ifndef			SQUARE_RES_DATA_WIDTH
+	`define			SQUARE_RES_DATA_WIDTH				(SQUARE_SRC_DATA_WIDTH << 1)
+	`endif
 					// parameter for preset-sequence
 					PRESET_SEQUENCE						=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
 					// parameter for package
@@ -82,7 +86,7 @@ module ThresholdCutter #(
 	wire clk_50m, sys_rst_n;
 
 	// ThresholdCutterWindow signals
-	reg [WINDOW_WIDTH - 1:0] ThresholdCutterWindow_data_i;
+	reg [WINDOW_WIDTH:0] ThresholdCutterWindow_data_i;
 	reg ThresholdCutterWindow_data_wen;
 
 	// BlueToothController signals
@@ -102,6 +106,72 @@ module ThresholdCutter #(
 	// read one complete package to window
 	reg [1:0] ThresholdCutter_win_state;
 	reg [`PACKAGE_NO_INDEX - 1:0] ThresholdCutter_win_cnt;
+	reg [SQUARE_SRC_DATA_WIDTH - 1:0] Ax, Ay, Az;
+	wire squareSumCo, tempSquareSumCo, package_energy;
+	wire [`SQUARE_RES_DATA_WIDTH - 1:0] AxSquare, AySquare, AzSquare, tempSquareSum, squareSum;
+	// AxSquare
+	square #(
+		.SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH)
+	) m_AxSquare (
+		// temp useless
+		.clk		(clk													),
+		.rst_n		(rst_n													),
+
+		// square src
+		.src0		(Ax														),
+		.src1		(Ax														),
+
+		// square res
+		.res		(AxSquare												)
+	);
+	// AySquare
+	square #(
+		.SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH)
+	) m_AySquare (
+		// temp useless
+		.clk		(clk													),
+		.rst_n		(rst_n													),
+
+		// square src
+		.src0		(Ay														),
+		.src1		(Ay														),
+
+		// square res
+		.res		(AySquare												)
+	);
+	// AzSquare
+	square #(
+		.SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH)
+	) m_AzSquare (
+		// temp useless
+		.clk		(clk													),
+		.rst_n		(rst_n													),
+
+		// square src
+		.src0		(Az														),
+		.src1		(Az														),
+
+		// square res
+		.res		(AzSquare												)
+	);
+	// tempSquareSum
+	cla32 m_tempSquareSum(
+		.a			(AxSquare												),
+		.b			(AySquare												),
+		.ci			(1'b0													),
+		.s			(tempSquareSum											),
+		.co			(tempSquareSumCo										)
+	);
+	// squareSum
+	cla32 m_squareSum(
+		.a			(tempSquareSum											),
+		.b			(AzSquare												),
+		.ci			(1'b0													),
+		.s			(squareSum												),
+		.co			(squareSumCo											)
+	);
+	// package_energy
+	assign package_energy = (squareSumCo | tempSquareSumCo | (squareSum >= THRESHOLD));
 	always@ (posedge clk_50m)
 		begin
 		if (!sys_rst_n)
@@ -110,10 +180,13 @@ module ThresholdCutter #(
 			ThresholdCutter_win_state <= WIN_IDLE;
 			// inner signals
 			ThresholdCutter_win_cnt <= {`PACKAGE_NO_INDEX{1'b0}};
+			Ax <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+			Ay <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+			Az <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
 			// response FIFO signals
 			BlueTooth_response_FIFO_r_en <= 1'b0;
 			// ThresholdCutterWindow signals
-			ThresholdCutterWindow_data_i <= {WINDOW_WIDTH{1'b0}};
+			ThresholdCutterWindow_data_i <= {(WINDOW_WIDTH + 1){1'b0}};
 			ThresholdCutterWindow_data_wen <= 1'b0;
 			end
 		else
@@ -127,10 +200,13 @@ module ThresholdCutter #(
 						ThresholdCutter_win_state <= WIN_PREPARE;
 						// inner signals
 						ThresholdCutter_win_cnt <= {`PACKAGE_NO_INDEX{1'b0}};
+						Ax <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+						Ay <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+						Az <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
 						// response FIFO signals
 						BlueTooth_response_FIFO_r_en <= 1'b1;
 						// ThresholdCutterWindow signals
-						ThresholdCutterWindow_data_i <= {WINDOW_WIDTH{1'b0}};
+						ThresholdCutterWindow_data_i <= {(WINDOW_WIDTH + 1){1'b0}};
 						ThresholdCutterWindow_data_wen <= 1'b0;
 						end
 					else
@@ -139,10 +215,13 @@ module ThresholdCutter #(
 						ThresholdCutter_win_state <= WIN_IDLE;
 						// inner signals
 						ThresholdCutter_win_cnt <= {`PACKAGE_NO_INDEX{1'b0}};
+						Ax <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+						Ay <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+						Az <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
 						// response FIFO signals
 						BlueTooth_response_FIFO_r_en <= 1'b0;
 						// ThresholdCutterWindow signals
-						ThresholdCutterWindow_data_i <= {WINDOW_WIDTH{1'b0}};
+						ThresholdCutterWindow_data_i <= {(WINDOW_WIDTH + 1){1'b0}};
 						ThresholdCutterWindow_data_wen <= 1'b0;
 						end
 					end
@@ -153,15 +232,22 @@ module ThresholdCutter #(
 					if ((ThresholdCutter_win_cnt < `PACKAGE_TOLSIZE - 1) && (ThresholdCutter_win_cnt > 0))		// loss 2
 						begin
 						// ThresholdCutterWindow signals
-						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 9:0], BlueTooth_response_FIFO_data_o};
+						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 8:1], BlueTooth_response_FIFO_data_o, package_energy};
 						ThresholdCutterWindow_data_wen <= 1'b0;
 						end
 					else if (ThresholdCutter_win_cnt ==`PACKAGE_TOLSIZE - 1)
 						begin
+						// inner
+						Ax <=  {ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 8:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 15], 
+								ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 0:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 7]};
+						Ay <=  {ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 24:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 31], 
+								ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 16:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 23]};
+						Az <=  {ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 40:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 47], 
+								ThresholdCutterWindow_data_i[WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 32:WINDOW_WIDTH - `WINDOW_SUB_WIDTH - 39]};
 						// response FIFO signals
 						BlueTooth_response_FIFO_r_en <= 1'b0;
 						// ThresholdCutterWindow signals
-						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 9:0], BlueTooth_response_FIFO_data_o};
+						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 8:1], BlueTooth_response_FIFO_data_o, package_energy};
 						ThresholdCutterWindow_data_wen <= 1'b0;
 						end
 					else if (ThresholdCutter_win_cnt ==`PACKAGE_TOLSIZE)
@@ -171,7 +257,7 @@ module ThresholdCutter #(
 						// response FIFO signals
 						BlueTooth_response_FIFO_r_en <= 1'b0;
 						// ThresholdCutterWindow signals
-						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 9:0], BlueTooth_response_FIFO_data_o};
+						ThresholdCutterWindow_data_i <= {ThresholdCutterWindow_data_i[WINDOW_WIDTH - 8:1], BlueTooth_response_FIFO_data_o, package_energy};
 						ThresholdCutterWindow_data_wen <= 1'b1;
 						end
 					end
@@ -181,10 +267,13 @@ module ThresholdCutter #(
 					ThresholdCutter_win_state <= WIN_IDLE;
 					// inner signals
 					ThresholdCutter_win_cnt <= {`PACKAGE_NO_INDEX{1'b0}};
+					Ax <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+					Ay <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+					Az <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
 					// response FIFO signals
 					BlueTooth_response_FIFO_r_en <= 1'b0;
 					// ThresholdCutterWindow signals
-					ThresholdCutterWindow_data_i <= {WINDOW_WIDTH{1'b0}};
+					ThresholdCutterWindow_data_i <= {(WINDOW_WIDTH + 1){1'b0}};
 					ThresholdCutterWindow_data_wen <= 1'b0;
 					end
 				default:
@@ -193,10 +282,13 @@ module ThresholdCutter #(
 					ThresholdCutter_win_state <= WIN_IDLE;
 					// inner signals
 					ThresholdCutter_win_cnt <= {`PACKAGE_NO_INDEX{1'b0}};
+					Ax <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+					Ay <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
+					Az <= {SQUARE_SRC_DATA_WIDTH{1'b0}};
 					// response FIFO signals
 					BlueTooth_response_FIFO_r_en <= 1'b0;
 					// ThresholdCutterWindow signals
-					ThresholdCutterWindow_data_i <= {WINDOW_WIDTH{1'b0}};
+					ThresholdCutterWindow_data_i <= {(WINDOW_WIDTH + 1){1'b0}};
 					ThresholdCutterWindow_data_wen <= 1'b0;
 					end
 			endcase
