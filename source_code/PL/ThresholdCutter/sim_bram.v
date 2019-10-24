@@ -1,7 +1,7 @@
 module sim_bram #(
 	parameter		BLOCK_NUM_INDEX		=	6,			// 2 ** 6 == 64 blocks
 					BLOCK_DEPTH_INDEX	=	(7 + 2),	// 2 ** 9 == 512( * 32bit(4B))
-	`define			BLOCK_INDEX			(BLOCK_NUM_INDEX + BLOCK_DEPTH_INDEX)
+	`define			BLOCK_INDEX			1 << (BLOCK_NUM_INDEX + BLOCK_DEPTH_INDEX)
 					BLOCK_WIDTH			=	32			// 32bit -> 4B
 ) (
 	input								clk			,

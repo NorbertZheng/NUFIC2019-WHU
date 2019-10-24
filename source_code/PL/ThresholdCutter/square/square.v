@@ -23,7 +23,7 @@ module square #(
 	// meta_multiplier
 	meta_multiplier # (
 		.OP_WIDTH(SRC_DATA_WIDTH)
-	) (
+	) m_meta_multiplier (
 		// temp useless
 		.clk		(clk	),
 		.rst_n		(rst_n	),
