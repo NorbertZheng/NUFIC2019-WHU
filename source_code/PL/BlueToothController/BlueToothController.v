@@ -3,7 +3,7 @@ module BlueToothController #(
 					CONFIG_EN							=	1,		// do not enable config
 					// config
 					CLK_FRE								=	50,		// 50MHz
-					BAUD_RATE							=	9600,	// 9600Hz (4800, 19200, 38400, 57600, 115200, 38400...)
+					BAUD_RATE							=	115200,	// 115200Hz (4800, 19200, 38400, 57600, 115200, 38400...)
 					STOP_BIT							=	0,		// 0 : 1-bit stop-bit, 1 : 2-bit stop-bit
 					CHECK_BIT							=	0,		// 0 : no check-bit, 1 : odd, 2 : even
 					// default	9600	0	0
