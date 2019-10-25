@@ -260,9 +260,9 @@ module uart_controller #(
 		.clk						(clk			),
 		.rst_n						(rst_n			),
 		.rx_data					(rx_data_sub	),		// wire [7:0]
-		.rx_data_valid				(rx_data_vld	),
-		.rx_data_ready				(rx_data_rdy	),
-		.rx_pin						(uart_rx		)
+		.rx_rdy						(rx_data_vld	),
+		.rx_ack						(rx_data_rdy	),
+		.uart_rx					(uart_rx		)
 	);
 
 	// uart_tx
@@ -273,9 +273,9 @@ module uart_controller #(
 		.clk						(clk			),
 		.rst_n						(rst_n			),
 		.tx_data					(tx_data_sub	),		// wire [7:0]
-		.tx_data_valid				(tx_data_vld	),
-		.tx_data_ready				(tx_data_rdy	),
-		.tx_pin						(uart_tx		)
+		.tx_vld						(tx_data_vld	),
+		.tx_rdy						(tx_data_rdy	),
+		.uart_tx					(uart_tx		)
 	);
 
 endmodule

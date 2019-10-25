@@ -33,7 +33,7 @@ module sim_BlueTooth #(
 		.BAUD_RATE(BAUD_RATE),							// 115200Hz
 		.TX_DATA_BYTE_WIDTH(TX_DATA_BYTE_WIDTH),		// 11 bytes to transmit
 		.RX_DATA_BYTE_WIDTH(RX_DATA_BYTE_WIDTH)			// 11 bytes to receive
-	) (
+	) m_uart_controller (
 		.clk			(clk				),
 		.rst_n			(rst_n				),
 		.uart_rx		(uart_rx			),

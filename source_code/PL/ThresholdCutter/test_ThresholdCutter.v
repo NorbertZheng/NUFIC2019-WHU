@@ -61,13 +61,13 @@ module test_ThresholdCutter #(
 		begin
 		clk = 1'b0;
 		rst_n = 1'b1;
-		data_wen = 1'b0;
-		data_i = {WINDOW_WIDTH{1'b0}};
+		tx_vld = 1'b0;
+		tx_data = {WINDOW_WIDTH{1'b0}};
 		# 500;
 		rst_n = 1'b0;
 		# 500;
 		rst_n = 1'b1;
-				tx_vld = 1'b1;
+		tx_vld = 1'b1;
 		tx_data = 88'h55_50_00_00_00_00_00_00_00_00_00;
 		# 100;
 		tx_vld = 1'b0;
@@ -15436,7 +15436,7 @@ module test_ThresholdCutter #(
 		.BAUD_RATE(BAUD_RATE),	// 9600Hz (4800, 19200, 38400, 57600, 115200, 38400...)
 		.TX_DATA_BYTE_WIDTH(TX_DATA_BYTE_WIDTH),	// 11 bytes to transmit
 		.RX_DATA_BYTE_WIDTH(RX_DATA_BYTE_WIDTH)		// 11 bytes to receive
-	) (
+	) m_sim_BlueTooth (
 		.clk				(clk			),
 		.rst_n				(rst_n			),
 
@@ -15487,7 +15487,7 @@ module test_ThresholdCutter #(
 		// parameter for package
 		.PACKAGE_SIZE(PACKAGE_SIZE),
 		.PACKAGE_NUM(PACKAGE_NUM)
-	) (
+	) m_ThresholdCutter (
 		.clk							(clk				),
 		.rst_n							(rst_n				),
 
