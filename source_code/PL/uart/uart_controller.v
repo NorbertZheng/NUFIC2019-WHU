@@ -3,8 +3,12 @@ module uart_controller #(
 					BAUD_RATE			=	115200,	// 115200Hz
 					TX_DATA_BYTE_WIDTH	=	18,		// 18 bytes to transmit
 					RX_DATA_BYTE_WIDTH	=	8		// 8 bytes to receive
+	`ifndef			TX_DATA_BIT_WIDTH
 	`define			TX_DATA_BIT_WIDTH	(TX_DATA_BYTE_WIDTH << 3)
+	`endif
+	`ifndef			RX_DATA_BIT_WIDTH
 	`define			RX_DATA_BIT_WIDTH	(RX_DATA_BYTE_WIDTH << 3)
+	`endif
 ) (
 	input									clk			,
 	input									rst_n		,
