@@ -9,9 +9,9 @@ module debug_ThresholdCutter #(
 					// default	9600	0	0
 					// granularity
 					REQUEST_FIFO_DATA_WIDTH				=	8,		// the bit width of data we stored in the FIFO
-					REQUEST_FIFO_DATA_DEPTH_INDEX		=	5,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
+					REQUEST_FIFO_DATA_DEPTH_INDEX		=	6,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 					RESPONSE_FIFO_DATA_WIDTH			=	8,		// the bit width of data we stored in the FIFO
-					RESPONSE_FIFO_DATA_DEPTH_INDEX		=	5,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
+					RESPONSE_FIFO_DATA_DEPTH_INDEX		=	6,		// the index_width of data unit(reg [DATA_WIDTH - 1:0])
 					// uart connected with PC
 					PC_BAUD_RATE						=	115200,	// 115200Hz
 					// enable simulation

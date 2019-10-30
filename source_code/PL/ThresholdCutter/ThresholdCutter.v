@@ -34,7 +34,8 @@ module ThresholdCutter #(
 					PRESET_SEQUENCE						=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
 					// parameter for package
 					PACKAGE_SIZE						=	11,
-					PACKAGE_NUM							=	4
+					PACKAGE_NUM							=	4,
+					DATA_BYTE_SHIFT						=	5
 	`define			PACKAGE_TOLSIZE						(PACKAGE_NUM * PACKAGE_SIZE)
 	`define			PACKAGE_START						1
 	`define			PACKAGE_FUNC						2
@@ -103,6 +104,8 @@ module ThresholdCutter #(
 	// reg [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i;
 	wire [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i = {REQUEST_FIFO_DATA_WIDTH{1'b0}};;
 	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_o;
+	(* mark_debug = "true" *)wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] debug_BlueTooth_response_FIFO_data_o = BlueTooth_response_FIFO_data_o;
+	(* mark_debug = "true" *)wire [WINDOW_WIDTH:0] debug_ThresholdCutterWindow_data_i = ThresholdCutterWindow_data_i;
 	// for debug
 	reg BlueTooth_State_reg;
 	always@ (posedge clk_50m)
@@ -200,7 +203,7 @@ module ThresholdCutter #(
 			case (ThresholdCutter_win_state)
 				WIN_IDLE:
 					begin
-					if (!BlueTooth_response_FIFO_empty && BlueTooth_response_FIFO_surplus <= {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b1}} - `PACKAGE_TOLSIZE)			// response FIFO is not empty
+					if (!BlueTooth_response_FIFO_empty && (BlueTooth_response_FIFO_surplus <= {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b1}} - `PACKAGE_TOLSIZE))			// response FIFO is not empty
 						begin
 						// state
 						ThresholdCutter_win_state <= WIN_PREPARE;
@@ -398,7 +401,8 @@ module ThresholdCutter #(
 		// parameter for square
 		.SQUARE_SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH),				// square src data width
 		// parameter for preset-sequence
-		.PRESET_SEQUENCE(PRESET_SEQUENCE)
+		.PRESET_SEQUENCE(PRESET_SEQUENCE),
+		.DATA_BYTE_SHIFT(DATA_BYTE_SHIFT)
 	) m_ThresholdCutterWindow (
 		.clk							(clk_50m								),
 		.rst_n							(rst_n									),

@@ -20,7 +20,8 @@ module ThresholdCutterWindow #(
 	`define			SQUARE_RES_DATA_WIDTH	(SQUARE_SRC_DATA_WIDTH << 1)
 	`endif
 					// parameter for preset-sequence
-					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05
+					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
+					DATA_BYTE_SHIFT			=	5
 ) (
 	input								clk,
 	input								rst_n,
@@ -468,7 +469,7 @@ module ThresholdCutterWindow #(
 		assign s_axi_awsize = 3'b101;			// 32 bytes
 		assign s_axi_awid = 4'd0;
 		assign s_axi_awlen = 8'd0;
-		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX){1'b0}}, {block_no, block_ptr}};
+		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX - DATA_BYTE_SHIFT){1'b0}}, {block_no, block_ptr}, {DATA_BYTE_SHIFT{1'b0}}};
 		assign s_axi_wlast = 1'b1;
 		assign s_axi_wvalid = bram_wen;
 		assign s_axi_wstrb = 32'hff_ff_ff_ff;	// all enable
