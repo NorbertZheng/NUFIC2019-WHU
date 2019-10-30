@@ -55,6 +55,9 @@ module ThresholdCutter #(
 	// ThresholdCutterWindow signals
 	output		[WINDOW_DEPTH - 1:0]		ThresholdCutterWindow_flag_o	,
 
+	output									AXI_reader_read_start			,
+	output		[31:0]						AXI_reader_axi_araddr_start		,
+
 	// AXI RAM signals
 	// ram safe access
 	output									rsta_busy			,
@@ -326,13 +329,15 @@ module ThresholdCutter #(
 		end
 	else
 		begin
-		// PLL
+		/*// PLL
 		pll m_pll (
 			.clk_50m		(clk_50m		),
 			.reset			(rst_n			),
 			.locked			(sys_rst_n		),
 			.clk_in1		(clk			)
-		);
+		);*/
+		assign clk_50m = clk;
+		assign sys_rst_n = rst_n;
 		end
 	endgenerate
 
@@ -395,35 +400,38 @@ module ThresholdCutter #(
 		// parameter for preset-sequence
 		.PRESET_SEQUENCE(PRESET_SEQUENCE)
 	) m_ThresholdCutterWindow (
-		.clk			(clk_50m								),
-		.rst_n			(rst_n									),
+		.clk							(clk_50m								),
+		.rst_n							(rst_n									),
 
-		.data_i			(ThresholdCutterWindow_data_i			),
-		.data_wen		(ThresholdCutterWindow_data_wen			),
+		.data_i							(ThresholdCutterWindow_data_i			),
+		.data_wen						(ThresholdCutterWindow_data_wen			),
 
-		.flag_o			(ThresholdCutterWindow_flag_o			),
+		.flag_o							(ThresholdCutterWindow_flag_o			),
+
+		.AXI_reader_read_start			(AXI_reader_read_start					),
+		.AXI_reader_axi_araddr_start	(AXI_reader_axi_araddr_start			),
 
 		// AXI RAM signals
 		// ram safe access
-		.rsta_busy		(rsta_busy								),
-		.rstb_busy		(rstb_busy								),
+		.rsta_busy						(rsta_busy								),
+		.rstb_busy						(rstb_busy								),
 
 		// AXI read control signals
-		.s_axi_arid		(s_axi_arid								),
-		.s_axi_araddr	(s_axi_araddr							),
-		.s_axi_arlen	(s_axi_arlen							),
-		.s_axi_arsize	(s_axi_arsize							),
-		.s_axi_arburst	(s_axi_arburst							),
-		.s_axi_arvalid	(s_axi_arvalid							),
-		.s_axi_arready	(s_axi_arready							),
+		.s_axi_arid						(s_axi_arid								),
+		.s_axi_araddr					(s_axi_araddr							),
+		.s_axi_arlen					(s_axi_arlen							),
+		.s_axi_arsize					(s_axi_arsize							),
+		.s_axi_arburst					(s_axi_arburst							),
+		.s_axi_arvalid					(s_axi_arvalid							),
+		.s_axi_arready					(s_axi_arready							),
 
 		// AXI read data signals
-		.s_axi_rid		(s_axi_rid								),
-		.s_axi_rdata	(s_axi_rdata							),
-		.s_axi_rresp	(s_axi_rresp							),
-		.s_axi_rlast	(s_axi_rlast							),
-		.s_axi_rvalid	(s_axi_rvalid							),
-		.s_axi_rready	(s_axi_rready							)
+		.s_axi_rid						(s_axi_rid								),
+		.s_axi_rdata					(s_axi_rdata							),
+		.s_axi_rresp					(s_axi_rresp							),
+		.s_axi_rlast					(s_axi_rlast							),
+		.s_axi_rvalid					(s_axi_rvalid							),
+		.s_axi_rready					(s_axi_rready							)
 	);
 
 endmodule

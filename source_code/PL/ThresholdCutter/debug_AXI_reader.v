@@ -1,6 +1,6 @@
 module debug_AXI_reader #(
 	parameter		// parameter for data buffer
-					TOTAL_PACKAGE		=	400,
+					TOTAL_PACKAGE		=	416,
 					DATA_DEPTH			=	16,
 					DATA_BYTE_SHIFT		=	5,
 					DATA_BYTE_WIDTH		=	32,
