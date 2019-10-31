@@ -20,7 +20,8 @@ module ThresholdCutterWindow #(
 	`define			SQUARE_RES_DATA_WIDTH	(SQUARE_SRC_DATA_WIDTH << 1)
 	`endif
 					// parameter for preset-sequence
-					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05
+					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
+					DATA_BYTE_SHIFT			=	5
 ) (
 	input								clk,
 	input								rst_n,
@@ -29,6 +30,10 @@ module ThresholdCutterWindow #(
 	input								data_wen,
 
 	output		[WINDOW_DEPTH - 1:0]	flag_o,
+
+	// for debug_AXI_reader
+	output	reg							AXI_reader_read_start,
+	output	reg	[31:0]					AXI_reader_axi_araddr_start,
 
 	// AXI RAM signals
 	// ram safe access
@@ -205,6 +210,9 @@ module ThresholdCutterWindow #(
 			write_tag <= 1'b0;
 			// dram_wen <= 1'b0;
 			// dram_data_i <= 8'b0;
+			// output
+			AXI_reader_read_start <= 1'b0;
+			AXI_reader_axi_araddr_start <= 32'b0;
 			end
 		else
 			begin
@@ -227,6 +235,9 @@ module ThresholdCutterWindow #(
 				write_tag <= 1'b0;
 				// dram_wen <= 1'b0;
 				// dram_data_i <= 8'b0;
+				// output
+				AXI_reader_read_start <= 1'b0;
+				AXI_reader_axi_araddr_start <= 32'b0;
 				end
 			else
 				begin
@@ -239,6 +250,9 @@ module ThresholdCutterWindow #(
 					bram_data_i <= {248'h0, preset_sequence[block_no[2:0]]};			/////////////////////////////////////////////////
 					// for dram
 					write_tag <= 1'b0;
+					// output
+					AXI_reader_read_start <= 1'b1;
+					AXI_reader_axi_araddr_start <= {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX){1'b0}}, {block_no, {`BLOCK_DEPTH_INDEX{1'b0}}}};
 					end
 				else if (break_flag)	// to break data stream
 					begin
@@ -256,6 +270,9 @@ module ThresholdCutterWindow #(
 						else									write_tag <= 1'b0;
 						// dram_wen <= 1'b0;
 						// dram_data_i <= 8'b0;
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
 						end
 					else if (block_ptr == `BLOCK_DEPTH)		// fill complete!
 						begin
@@ -271,6 +288,9 @@ module ThresholdCutterWindow #(
 						write_tag <= 1'b0;
 						// dram_wen <= 1'b1;
 						// dram_data_i <= preset_sequence[block_no[3:0]];
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
 						end
 					else										// data is not valid
 						begin
@@ -285,6 +305,9 @@ module ThresholdCutterWindow #(
 						write_tag <= 1'b0;
 						// dram_wen <= 1'b0;
 						// dram_data_i <= 8'b0;
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
 						end
 					end
 				else											// not in break, data is valid or is trying to be valid
@@ -305,6 +328,9 @@ module ThresholdCutterWindow #(
 								else									write_tag <= 1'b0;
 								// dram_wen <= 1'b0;
 								// dram_data_i <= 8'b0;
+								// output
+								AXI_reader_read_start <= 1'b0;
+								AXI_reader_axi_araddr_start <= 32'b0;
 								end
 							else if (block_ptr == `BLOCK_DEPTH)		// one block is full (should not happen)
 								begin
@@ -318,6 +344,9 @@ module ThresholdCutterWindow #(
 								write_tag <= 1'b0;
 								// dram_wen <= 1'b1;
 								// dram_data_i <= preset_sequence[block_no[3:0]];
+								// output
+								AXI_reader_read_start <= 1'b0;
+								AXI_reader_axi_araddr_start <= 32'b0;
 								end
 							end
 						else
@@ -326,11 +355,17 @@ module ThresholdCutterWindow #(
 							bram_wen <= 1'b0;
 							// for dram
 							dram_wen <= 1'b0;
+							// output
+							AXI_reader_read_start <= 1'b0;
+							AXI_reader_axi_araddr_start <= 32'b0;
 							end
 						end
 					else										// data is trying to be valid, do nothing(wait the last to be valid)
 						begin
 						// do nothing
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
 						end
 					end
 				end
@@ -434,7 +469,7 @@ module ThresholdCutterWindow #(
 		assign s_axi_awsize = 3'b101;			// 32 bytes
 		assign s_axi_awid = 4'd0;
 		assign s_axi_awlen = 8'd0;
-		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX){1'b0}}, {block_no, block_ptr}};
+		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX - DATA_BYTE_SHIFT){1'b0}}, {block_no, block_ptr}, {DATA_BYTE_SHIFT{1'b0}}};
 		assign s_axi_wlast = 1'b1;
 		assign s_axi_wvalid = bram_wen;
 		assign s_axi_wstrb = 32'hff_ff_ff_ff;	// all enable

@@ -34,7 +34,8 @@ module ThresholdCutter #(
 					PRESET_SEQUENCE						=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
 					// parameter for package
 					PACKAGE_SIZE						=	11,
-					PACKAGE_NUM							=	4
+					PACKAGE_NUM							=	4,
+					DATA_BYTE_SHIFT						=	5
 	`define			PACKAGE_TOLSIZE						(PACKAGE_NUM * PACKAGE_SIZE)
 	`define			PACKAGE_START						1
 	`define			PACKAGE_FUNC						2
@@ -54,6 +55,9 @@ module ThresholdCutter #(
 
 	// ThresholdCutterWindow signals
 	output		[WINDOW_DEPTH - 1:0]		ThresholdCutterWindow_flag_o	,
+
+	output									AXI_reader_read_start			,
+	output		[31:0]						AXI_reader_axi_araddr_start		,
 
 	// AXI RAM signals
 	// ram safe access
@@ -100,6 +104,8 @@ module ThresholdCutter #(
 	// reg [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i;
 	wire [REQUEST_FIFO_DATA_WIDTH - 1:0] BlueTooth_request_FIFO_data_i = {REQUEST_FIFO_DATA_WIDTH{1'b0}};;
 	wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] BlueTooth_response_FIFO_data_o;
+	(* mark_debug = "true" *)wire [RESPONSE_FIFO_DATA_WIDTH - 1:0] debug_BlueTooth_response_FIFO_data_o = BlueTooth_response_FIFO_data_o;
+	(* mark_debug = "true" *)wire [WINDOW_WIDTH:0] debug_ThresholdCutterWindow_data_i = ThresholdCutterWindow_data_i;
 	// for debug
 	reg BlueTooth_State_reg;
 	always@ (posedge clk_50m)
@@ -197,7 +203,7 @@ module ThresholdCutter #(
 			case (ThresholdCutter_win_state)
 				WIN_IDLE:
 					begin
-					if (!BlueTooth_response_FIFO_empty && BlueTooth_response_FIFO_surplus <= {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b1}} - `PACKAGE_TOLSIZE)			// response FIFO is not empty
+					if (!BlueTooth_response_FIFO_empty && (BlueTooth_response_FIFO_surplus <= {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b1}} - `PACKAGE_TOLSIZE))			// response FIFO is not empty
 						begin
 						// state
 						ThresholdCutter_win_state <= WIN_PREPARE;
@@ -326,13 +332,15 @@ module ThresholdCutter #(
 		end
 	else
 		begin
-		// PLL
+		/*// PLL
 		pll m_pll (
 			.clk_50m		(clk_50m		),
 			.reset			(rst_n			),
 			.locked			(sys_rst_n		),
 			.clk_in1		(clk			)
-		);
+		);*/
+		assign clk_50m = clk;
+		assign sys_rst_n = rst_n;
 		end
 	endgenerate
 
@@ -393,37 +401,41 @@ module ThresholdCutter #(
 		// parameter for square
 		.SQUARE_SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH),				// square src data width
 		// parameter for preset-sequence
-		.PRESET_SEQUENCE(PRESET_SEQUENCE)
+		.PRESET_SEQUENCE(PRESET_SEQUENCE),
+		.DATA_BYTE_SHIFT(DATA_BYTE_SHIFT)
 	) m_ThresholdCutterWindow (
-		.clk			(clk_50m								),
-		.rst_n			(rst_n									),
+		.clk							(clk_50m								),
+		.rst_n							(rst_n									),
 
-		.data_i			(ThresholdCutterWindow_data_i			),
-		.data_wen		(ThresholdCutterWindow_data_wen			),
+		.data_i							(ThresholdCutterWindow_data_i			),
+		.data_wen						(ThresholdCutterWindow_data_wen			),
 
-		.flag_o			(ThresholdCutterWindow_flag_o			),
+		.flag_o							(ThresholdCutterWindow_flag_o			),
+
+		.AXI_reader_read_start			(AXI_reader_read_start					),
+		.AXI_reader_axi_araddr_start	(AXI_reader_axi_araddr_start			),
 
 		// AXI RAM signals
 		// ram safe access
-		.rsta_busy		(rsta_busy								),
-		.rstb_busy		(rstb_busy								),
+		.rsta_busy						(rsta_busy								),
+		.rstb_busy						(rstb_busy								),
 
 		// AXI read control signals
-		.s_axi_arid		(s_axi_arid								),
-		.s_axi_araddr	(s_axi_araddr							),
-		.s_axi_arlen	(s_axi_arlen							),
-		.s_axi_arsize	(s_axi_arsize							),
-		.s_axi_arburst	(s_axi_arburst							),
-		.s_axi_arvalid	(s_axi_arvalid							),
-		.s_axi_arready	(s_axi_arready							),
+		.s_axi_arid						(s_axi_arid								),
+		.s_axi_araddr					(s_axi_araddr							),
+		.s_axi_arlen					(s_axi_arlen							),
+		.s_axi_arsize					(s_axi_arsize							),
+		.s_axi_arburst					(s_axi_arburst							),
+		.s_axi_arvalid					(s_axi_arvalid							),
+		.s_axi_arready					(s_axi_arready							),
 
 		// AXI read data signals
-		.s_axi_rid		(s_axi_rid								),
-		.s_axi_rdata	(s_axi_rdata							),
-		.s_axi_rresp	(s_axi_rresp							),
-		.s_axi_rlast	(s_axi_rlast							),
-		.s_axi_rvalid	(s_axi_rvalid							),
-		.s_axi_rready	(s_axi_rready							)
+		.s_axi_rid						(s_axi_rid								),
+		.s_axi_rdata					(s_axi_rdata							),
+		.s_axi_rresp					(s_axi_rresp							),
+		.s_axi_rlast					(s_axi_rlast							),
+		.s_axi_rvalid					(s_axi_rvalid							),
+		.s_axi_rready					(s_axi_rready							)
 	);
 
 endmodule
