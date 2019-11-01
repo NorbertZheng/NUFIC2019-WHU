@@ -165,9 +165,10 @@ module BlueToothController #(
 	assign cmd_handler_BlueTooth_response_FIFO_surplus = BlueTooth_init_flag ? BlueTooth_response_FIFO_surplus : {RESPONSE_FIFO_DATA_DEPTH_INDEX{1'b0}};
 
 	// receive response(RX)
-	reg init_flag;
-	reg rx_ack_flag;
+	reg init_flag_head, init_flag_func;
 	reg [7:0] BlueTooth_rx_data_last;
+	(* mark_debug = "true" *)wire [7:0] debug_BlueTooth_rx_data_last = BlueTooth_rx_data_last;
+	(* mark_debug = "true" *)wire [7:0] debug_BlueTooth_rx_data = BlueTooth_rx_data;
 	reg [2:0] BlueTooth_rx_state;
 	always@ (posedge clk)
 		begin
@@ -176,9 +177,8 @@ module BlueToothController #(
 			// state
 			BlueTooth_rx_state <= RX_IDLE;
 			// inner signals
-			init_flag <= 1'b0;
-			rx_ack_flag <= 1'b0;
-			BlueTooth_rx_data_last <= 8'b0;
+			init_flag_head <= 1'b0;
+			init_flag_func <= 1'b0;
 			// response FIFO signals
 			BlueTooth_response_FIFO_data_i_vld <= 1'b0;
 			BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
@@ -192,38 +192,54 @@ module BlueToothController #(
 					begin
 					if (BlueTooth_rx_rdy)							// receive data
 						begin
-						if (!init_flag)
+						if (!init_flag_head)
 							begin
-							BlueTooth_rx_data_last <= BlueTooth_rx_data;
-							if (BlueTooth_rx_data_last == PACKAGE_START_HEAD && BlueTooth_rx_data == PACKAGE_START_FUNC)		// 0x55 0x50 means package start
+							if (BlueTooth_rx_data == PACKAGE_START_HEAD)		// 0x55 means package start
 								begin
 								// state
-								BlueTooth_rx_state <= RX_INIT;
+								BlueTooth_rx_state <= RX_WRDATA;
 								// inner signals
-								init_flag <= 1'b1;
+								init_flag_head <= 1'b1;
 								// response FIFO signals
 								BlueTooth_response_FIFO_data_i_vld <= 1'b1;
-								BlueTooth_response_FIFO_data_i <= BlueTooth_rx_data_last;
+								BlueTooth_response_FIFO_data_i <= BlueTooth_rx_data;
+								// uart_controller8bit signals
+								BlueTooth_rx_ack <= 1'b0;
 								end
 							else
 								begin
+								// state
+								BlueTooth_rx_state <= RX_END;
 								// response FIFO signals
 								BlueTooth_response_FIFO_data_i_vld <= 1'b0;
 								BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
-								if (!rx_ack_flag)
-									begin
-									// inner signals
-									rx_ack_flag <= 1'b1;
-									// uart_controller8bit signals
-									BlueTooth_rx_ack <= 1'b1;
-									end
-								else
-									begin
-									// inner signals
-									rx_ack_flag <= 1'b0;
-									// uart_controller8bit signals
-									BlueTooth_rx_ack <= 1'b0;
-									end
+								// uart_controller8bit signals
+								BlueTooth_rx_ack <= 1'b1;
+								end
+							end
+						else if (!init_flag_func)
+							begin
+							if (BlueTooth_rx_data == PACKAGE_START_FUNC)		// 0x50 means first package
+								begin
+								// state
+								BlueTooth_rx_state <= RX_WRDATA;
+								// inner signals
+								init_flag_func <= 1'b1;
+								// response FIFO signals
+								BlueTooth_response_FIFO_data_i_vld <= 1'b1;
+								BlueTooth_response_FIFO_data_i <= BlueTooth_rx_data;
+								// uart_controller8bit signals
+								BlueTooth_rx_ack <= 1'b0;
+								end
+							else
+								begin
+								// state
+								BlueTooth_rx_state <= RX_END;
+								// response FIFO signals
+								BlueTooth_response_FIFO_data_i_vld <= 1'b0;
+								BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
+								// uart_controller8bit signals
+								BlueTooth_rx_ack <= 1'b1;
 								end
 							end
 						else
@@ -233,77 +249,6 @@ module BlueToothController #(
 							// response FIFO signals
 							BlueTooth_response_FIFO_data_i_vld <= 1'b1;
 							BlueTooth_response_FIFO_data_i <= BlueTooth_rx_data;
-							end
-						// uart_controller8bit signals
-						BlueTooth_rx_ack <= 1'b0;
-						end
-					else
-						begin
-						// state
-						BlueTooth_rx_state <= RX_IDLE;
-						// inner signals
-						rx_ack_flag <= 1'b0;
-						// response FIFO signals
-						BlueTooth_response_FIFO_data_i_vld <= 1'b0;
-						BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
-						// uart_controller8bit signals
-						BlueTooth_rx_ack <= 1'b0;
-						end
-					end
-				RX_INIT:
-					begin
-					// response FIFO signals
-					BlueTooth_response_FIFO_data_i_vld <= 1'b0;
-					BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
-					if (BlueTooth_response_FIFO_data_i_rdy)			// data is accepted by FIFO
-						begin
-						// state
-						BlueTooth_rx_state <= RX_WRDATA;
-						// uart_controller8bit signals
-						BlueTooth_rx_ack <= 1'b1;
-						end
-					else
-						begin
-						// uart_controller8bit signals
-						BlueTooth_rx_ack <= 1'b0;
-						end
-					end
-				RX_INITWAIT:
-					begin
-					// state
-					BlueTooth_rx_state <= RX_INIT2;
-					// response FIFO signals
-					BlueTooth_response_FIFO_data_i_vld <= 1'b0;
-					BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
-					// uart_controller8bit signals
-					BlueTooth_rx_ack <= 1'b0;
-					end
-				RX_INIT2:
-					begin
-					// state
-					BlueTooth_rx_state <= RX_WRDATA;
-					// response FIFO signals
-					BlueTooth_response_FIFO_data_i_vld <= 1'b1;
-					BlueTooth_response_FIFO_data_i <= BlueTooth_rx_data_last;
-					// uart_controller8bit signals
-					BlueTooth_rx_ack <= 1'b0;
-					end
-				RX_WRDATA:
-					begin
-					// response FIFO signals
-					BlueTooth_response_FIFO_data_i_vld <= 1'b0;
-					BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
-					if (init_flag)
-						begin
-						if (BlueTooth_response_FIFO_data_i_rdy)			// data is accepted by FIFO
-							begin
-							// state
-							BlueTooth_rx_state <= RX_END;
-							// uart_controller8bit signals
-							BlueTooth_rx_ack <= 1'b1;
-							end
-						else
-							begin
 							// uart_controller8bit signals
 							BlueTooth_rx_ack <= 1'b0;
 							end
@@ -311,7 +256,30 @@ module BlueToothController #(
 					else
 						begin
 						// state
+						BlueTooth_rx_state <= RX_IDLE;
+						// response FIFO signals
+						BlueTooth_response_FIFO_data_i_vld <= 1'b0;
+						BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
+						// uart_controller8bit signals
+						BlueTooth_rx_ack <= 1'b0;
+						end
+					end
+				RX_WRDATA:
+					begin
+					// response FIFO signals
+					BlueTooth_response_FIFO_data_i_vld <= 1'b0;
+					BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};
+					if (BlueTooth_response_FIFO_data_i_rdy)			// data is accepted by FIFO
+						begin
+						// state
 						BlueTooth_rx_state <= RX_END;
+						// uart_controller8bit signals
+						BlueTooth_rx_ack <= 1'b1;
+						end
+					else
+						begin
+						// uart_controller8bit signals
+						BlueTooth_rx_ack <= 1'b0;
 						end
 					end
 				RX_END:
@@ -329,7 +297,8 @@ module BlueToothController #(
 					// state
 					BlueTooth_rx_state <= RX_IDLE;
 					// inner signals
-					init_flag <= 1'b0;
+					init_flag_head <= 1'b0;
+					init_flag_func <= 1'b0;
 					// response FIFO signals
 					BlueTooth_response_FIFO_data_i_vld <= 1'b0;
 					BlueTooth_response_FIFO_data_i <= {RESPONSE_FIFO_DATA_WIDTH{1'b0}};

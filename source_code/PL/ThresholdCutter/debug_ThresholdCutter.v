@@ -2,7 +2,7 @@ module debug_ThresholdCutter #(
 	parameter		// config enable
 					CONFIG_EN							=	0,		// do not enable config
 					// config
-					CLK_FRE								=	30,		// 50MHz
+					CLK_FRE								=	40,		// 50MHz
 					BAUD_RATE							=	115200,	// 115200Hz (4800, 19200, 38400, 57600, 115200, 38400...)
 					STOP_BIT							=	0,		// 0 : 1-bit stop-bit, 1 : 2-bit stop-bit
 					CHECK_BIT							=	0,		// 0 : no check-bit, 1 : odd, 2 : even
