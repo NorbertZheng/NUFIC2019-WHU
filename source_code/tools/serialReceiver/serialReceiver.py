@@ -1,153 +1,232 @@
-import sys
-import csv
+import time
 import serial
-import threading
+import logging
 import binascii
+import platform
 from datetime import datetime
+from SerialHelper import SerialHelper
 
-g = 9.8
-start_func = 0x50
-start_func_flag = False
-serialPort = 'com6'		# COM
-baudRate = 115200		# BAUD_RATE
-is_exit = False
-data_bytes = bytearray()
+if platform.system() == "Windows":
+	from serial.tools import list_ports
+else:
+	import glob
+	import os
+	import re
 
-class SerialPort:
+n_packageblock = 400
+n_block = 416
+block_size = 32
+n_packageblock_bytes = n_packageblock * block_size
+n_block_bytes = n_block * block_size
+tag_loc = n_packageblock_bytes + block_size - 1
 
-	def __init__(self, port, baudrate, timeout = 0.5):
-		self.port = serial.Serial(port, baudrate, timeout = timeout)
-		self.port.close()
-		if not self.port.isOpen():
-			self.port.open()
+class Serial(object):
 
-	def port_open(self):
-		if not self.port.isOpen():
-			self.port.open()
+	def __init__(self, port = "COM4", baudrate = "115200"):
+		'''
+		init parameters
+		'''
+		self.port = port
+		self.baudrate = baudrate
+		self.serial_receive_count = 0
+		self.serial_receive_data = []
+		self.serial_listbox = list()
 
-	def port_close(self):
-		self.port.close()
+		# enter your filename
+		datafile = input('enter your filename(for example, test.csv): ')
+		dt = datetime.now()
+		nowtime_str = dt.strftime('%y-%m-%d-%I-%M-%S')
+		self.datafile = nowtime_str + '_' + datafile
+		self.tagfile = nowtime_str + '_tag_' + datafile
 
-	def send_data(self):
-		self.port.write('')
+		# self.find_all_devices()
+		self.ser = SerialHelper(Port = self.port, BaudRate = self.baudrate)
+		self.ser.on_connected_changed(self.serial_on_connected_changed)
 
-	def read_data(self):
-		global is_exit, data_bytes
-		while not is_exit:
-			count = self.port.inWaiting()
-			if count > 0:
-				rec_str = self.port.read(count)
-				data_bytes = data_bytes + rec_str
-				# print('the amount of all received bytes: ' + str(len(data_bytes))+'\nthe amount of this received bytes: ' + str(len(rec_str)))
-				# print(str(datetime.now()), ':', binascii.b2a_hex(rec_str))
+	def find_all_devices(self):
+		'''
+		find all serial devices
+		'''
+		self.find_all_serial_devices()
 
-def main():
-	global g, start_func, start_func_flag
-	# open serial
-	m_Serial = SerialPort(serialPort, baudRate)
+	def find_all_serial_devices(self):
+		'''
+		check serial devices according to platform
+		'''
+		try:
+			if platform.system() == 'Windows':
+				self.temp_serial = list()
+				for com in list(list_ports.comports()):
+					try:
+						# self.print_com_attr(com)
+						strCom = com.device + ": " + com.description
+					except:
+						continue
+					self.temp_serial.append(strCom)
+				# print(self.temp_serial)
+				# can change GUI according to temp_serial
+				self.serial_listbox = self.temp_serial
+			elif platform.system() == "Linux":
+				self.temp_serial = list()
+				self.temp_serial = self.find_sub_tty()
+				# can change GUI according to temp_serial
+				self.serial_listbox = self.temp_serial
+		except Exception as e:
+			logging.error(e)
 
-	# enter your filename
-	filename = input('enter your filename(for example, test.csv): ')
-	dt = datetime.now()
-	nowtime_str = dt.strftime('%y-%m-%d-%I-%M-%S')
-	filename = nowtime_str + '_' + filename
-	out = open(filename, 'a+')
-	csv_writer = csv.writer(out)
+	def find_usb_tty(self, vendor_id=None, product_id=None):
+		'''
+		find serial devices in Linux
+		'''
+		tty_devs = list()
+		for dn in glob.glob('/sys/bus/usb/devices/*'):
+			try:
+				vid = int(open(os.path.join(dn, "idVendor")).read().strip(), 16)
+				pid = int(open(os.path.join(dn, "idProduct")).read().strip(), 16)
+				if ((vendor_id is None) or (vid == vendor_id)) and ((product_id is None) or (pid == product_id)):
+					dns = glob.glob(os.path.join(
+						dn, os.path.basename(dn) + "*"))
+					for sdn in dns:
+						for fn in glob.glob(os.path.join(sdn, "*")):
+							if re.search(r"\/ttyUSB[0-9]+$", fn):
+								tty_devs.append(os.path.join(
+									"/dev", os.path.basename(fn)))
+			except Exception as ex:
+				pass
+		return tty_devs
 
-	# start data read thread
-	t1 = threading.Thread(target = m_Serial.read_data)
-	t1.setDaemon(True)
-	t1.start()
+	def print_com_attr(self, com):
+		print(com)
+		try:
+			print("\tdevice:\t" + com.device)
+		except:
+			pass
+		try:
+			print("\tname:\t" + com.name)
+		except:
+			pass
+		try:
+			print("\tdescription:\t" + com.description)
+		except:
+			pass
+		try:
+			print("\thwid:\t" + com.hwid)
+		except:
+			pass
+		try:
+			print("\tvid:\t" + com.vid)
+		except:
+			pass
+		try:
+			print("\tpid:\t" + com.pid)
+		except:
+			pass
+		try:
+			print("\tserial_number:\t" + com.serial_number)
+		except:
+			pass
+		try:
+			print("\tlocation:\t" + com.location)
+		except:
+			pass
+		try:
+			print("\tmanufacturer:\t" + com.manufacturer)
+		except:
+			pass
+		try:
+			print("\tproduct:\t" + com.product)
+		except:
+			pass
+		try:
+			print("\tinterface:\t" + com.interface)
+		except:
+			pass
 
-	while not is_exit:
-		# main thread: modify the data from Serial
-		data_len = len(data_bytes)
-		i = 0
-		csv_row = []
-		while (i < data_len - 1):
-			# print(data_bytes[i])
-			if data_bytes[i] == 0x55:
-				# for write one datagram-set
-				if data_bytes[i + 1] == start_func:
-					if csv_row != []:
-						try:
-							csv_writer.writerow(csv_row)
-						except Exception as e:
-							raise e
-					csv_row = []
-				if data_bytes[i + 1] == 0x50:
-					# time
-					YY = str(data_bytes[i + 2])
-					MM = str(data_bytes[i + 3])
-					DD = str(data_bytes[i + 4])
-					HH = str(data_bytes[i + 5])
-					MM = str(data_bytes[i + 6])
-					SS = str(data_bytes[i + 7])
-					MS = str(data_bytes[i + 8:i + 9].reverse())
-					csv_row.extend([YY, MM, DD, HH, MM, SS, MS])
-					print(hex(data_bytes[i + 1]) + "\t" + YY + "\t" + MM + "\t" + DD + "\t" + HH + "\t" + SS + "\t" + MS)
-					# for start_func
-					if not start_func_flag:
-						start_func_flag = True
-						start_func = data_bytes[i + 1]
-					# skip 1 datagram
-					i = i + 11
-				elif data_bytes[i + 1] == 0x51:
-					# acceleration
-					ax = str(((data_bytes[i + 3] << 8) + data_bytes[i + 2]) / 32768 * 16 * g)
-					ay = str(((data_bytes[i + 5] << 8) + data_bytes[i + 4]) / 32768 * 16 * g)
-					az = str(((data_bytes[i + 7] << 8) + data_bytes[i + 6]) / 32768 * 16 * g)
-					T = str(((data_bytes[i + 9] << 8) + data_bytes[i + 8]) / 100)
-					csv_row.extend([ax, ay, az, T])
-					print(hex(data_bytes[i + 1]) + "\t" + ax + "\t" + ay + "\t" + az + "\t" + T + "℃")
-					# for start_func
-					if not start_func_flag:
-						start_func_flag = True
-						start_func = data_bytes[i + 1]
-					# skip 1 datagram
-					i = i + 11
-				elif data_bytes[i + 1] == 0x52:
-					wx = str(((data_bytes[i + 3] << 8) + data_bytes[i + 2]) / 32768 * 2000)
-					wy = str(((data_bytes[i + 5] << 8) + data_bytes[i + 4]) / 32768 * 2000)
-					wz = str(((data_bytes[i + 7] << 8) + data_bytes[i + 6]) / 32768 * 2000)
-					T = str(((data_bytes[i + 9] << 8) + data_bytes[i + 8]) / 100)
-					csv_row.extend([wx, wy, wz, T])
-					print(hex(data_bytes[i + 1]) + "\t" + wx + "\t" + wy + "\t" + wz + "\t" + T + "℃")
-					# for start_func
-					if not start_func_flag:
-						start_func_flag = True
-						start_func = data_bytes[i + 1]
-					# skip 1 datagram
-					i = i + 11
-				elif data_bytes[i + 1] == 0x53:
-					Roll = str(((data_bytes[i + 3] << 8) + data_bytes[i + 2]) / 32768 * 180)
-					Pitch = str(((data_bytes[i + 5] << 8) + data_bytes[i + 4]) / 32768 * 180)
-					Yaw = str(((data_bytes[i + 7] << 8) + data_bytes[i + 6]) / 32768 * 180)
-					T = str(((data_bytes[i + 9] << 8) + data_bytes[i + 8]) / 100)
-					csv_row.extend([Roll, Pitch, Yaw, T])		# somthing is wrong with T
-					print(hex(data_bytes[i + 1]) + "\t" + Roll + "\t" + Pitch + "\t" + Yaw + "\t" + T + "℃")
-					# for start_func
-					if not start_func_flag:
-						start_func_flag = True
-						start_func = data_bytes[i + 1]
-					# skip 1 datagram
-					i = i + 11
-				elif data_bytes[i + 1] == 0x56:
-					P = str(((data_bytes[i + 5] << 24) + (data_bytes[i + 4] << 16) + (data_bytes[i + 3] << 8) + data_bytes[i + 2]))
-					H = str(((data_bytes[i + 9] << 24) + (data_bytes[i + 8] << 16) + (data_bytes[i + 7] << 8) + data_bytes[i + 6]))
-					csv_row.extend([P, H])
-					print(hex(data_bytes[i + 1]) + "\t" + P + "(Pa)" + "\t" + H + "(cm)")
-					# for start_func
-					if not start_func_flag:
-						start_func_flag = True
-						start_func = data_bytes[i + 1]
-					# skip 1 datagram
-					i = i + 11
-				else:
-					print(hex(data_bytes[i + 1]))
-					i = i + 1
+	def serial_clear(self):
+		'''
+		clear serial receive text
+		'''
+		self.serial_receive_count = 0
+
+	def serial_toggle(self, port = "COM4", baudrate = "115200", parity = "N", databit = "8", stopbit = "1", open = 1):
+		'''
+		open / close serial devices
+		'''
+		if (open == 1):
+			try:
+				self.port = port
+				self.baudrate = baudrate
+				self.parity = parity
+				self.databit = databit
+				self.stopbit = stopbit
+				self.ser = SerialHelper(Port = self.port, BaudRate = self.baudrate, ByteSize = self.databit, Parity = self.parity, Stopbits = self.stopbit)
+				self.ser.on_connected_changed(self.serial_on_connected_changed)
+			except Exception as e:
+				logging.error(e)
+				# can change GUI according to error
+		else:
+			self.ser.disconnect()
+			# can change GUI according to disconnect
+
+	def serial_send(self, send_data, hex_flag = 1):
+		'''
+		serial data send
+		'''
+		if (hex_flag == 1):
+			send_data = send_data.replace(" ", "").replace("\n", "0A").replace("\r", "0D")
+			self.ser.write(send_data, True)
+		else:
+			self.ser.write(send_data)
+
+	def serial_on_connected_changed(self, is_connected):
+		'''
+		when serial devices connection changed, we will call this method
+		'''
+		if is_connected:
+			self.ser.connect()
+			if self.ser._is_connected:
+				# can change GUI according to connection state
+				self.ser.on_data_received(self.serial_on_data_received)
+				print("Connected")
 			else:
-				i = i + 1
+				# can change GUI according to connection state
+				pass
+		else:
+			self.ser.disconnect()
+			# can change GUI according to connection state
+			print("Disconnected")
+
+	def serial_on_data_received(self, data):
+		'''
+		when serial devices receive data, we will call this method
+		'''
+		# print([hex(x)[2:].zfill(2) for x in data])
+		self.serial_receive_data.extend([hex(x)[2:].zfill(2) for x in data])
+		# print(len(self.serial_receive_data))
+		csv_wrdata = ""
+		if (len(self.serial_receive_data) >= n_block_bytes):
+			for i in range(n_packageblock_bytes):
+				if (i % block_size) == block_size - 1:
+					csv_wrdata += self.serial_receive_data[i] + "\n"
+					print(self.serial_receive_data[i], end = "\n")
+				else:
+					csv_wrdata += self.serial_receive_data[i] + ","
+					print(self.serial_receive_data[i], end = " ")
+			with open(self.datafile, "a+") as f:
+				f.write(csv_wrdata)
+			print("tag: " + self.serial_receive_data[tag_loc])
+			with open(self.tagfile, "a+") as f:
+				f.write(self.serial_receive_data[tag_loc] + "\n")
+			self.serial_receive_data = self.serial_receive_data[n_block_bytes:]
+			print(self.serial_receive_data)
+		else:
+			pass
 
 if __name__ == '__main__':
-	main()
+	serial = Serial()
+	time.sleep(1)
+	count = 0
+	while count < 9:
+		# print("Count: %s"%count)
+		time.sleep(1)
+		# count += 1
