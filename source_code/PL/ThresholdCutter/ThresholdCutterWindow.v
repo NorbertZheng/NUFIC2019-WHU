@@ -427,6 +427,8 @@ module ThresholdCutterWindow #(
 							end
 						else
 							begin
+							// for bram
+							bram_wen <= 1'b0;
 							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
 							end
 						end
