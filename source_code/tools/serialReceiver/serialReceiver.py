@@ -31,6 +31,8 @@ class Serial(object):
 		self.serial_receive_count = 0
 		self.serial_receive_data = []
 		self.serial_listbox = list()
+		self.timestamp = time.time()
+		self.dataleng = len(self.serial_receive_data)
 
 		# enter your filename
 		datafile = input('enter your filename(for example, test.csv): ')
@@ -200,6 +202,44 @@ class Serial(object):
 		'''
 		when serial devices receive data, we will call this method
 		'''
+		'''
+		# print([hex(x)[2:].zfill(2) for x in data])
+		self.serial_receive_data.extend([hex(x)[2:].zfill(2) for x in data])
+		# print(len(self.serial_receive_data))
+		csv_wrdata = ""
+		self.currDataleng = len(self.serial_receive_data)
+		self.currTimestamp = time.time()
+		if ((self.currTimestamp - self.timestamp) > 5):
+			# complete data
+			temp_serial_receive_data = self.serial_receive_data[:self.dataleng - 1]
+			for j in range(n_packageblock_bytes - self.dataleng):
+				temp_serial_receive_data.append('00')
+			for i in range(n_packageblock_bytes):
+				if (i % block_size) == block_size - 1:
+					csv_wrdata += temp_serial_receive_data[i] + "\n"
+					print(temp_serial_receive_data[i], end = "\n")
+				else:
+					csv_wrdata += temp_serial_receive_data[i] + ","
+					print(temp_serial_receive_data[i], end = " ")
+			with open(self.datafile, "a+") as f:
+				f.write(csv_wrdata)
+			# label
+			tag = int(input("tag: "), 10)
+			with open(self.tagfile, "a+") as f:
+				f.write(tag + "\n")
+			self.timestamp = time.time()
+			self.serial_receive_data = self.serial_receive_data[self.dataleng:]
+			self.dataleng = len(self.serial_receive_data)
+			print(self.serial_receive_data)
+		else:
+			# self.serial_receive_data has already been updated
+			self.dataleng = len(self.serial_receive_data)
+			self.timestamp = time.time()
+			print(self.timestamp)
+		'''
+		self.currTimestamp = time.time()
+		if ((self.currTimestamp - self.timestamp) > 5):
+			self.serial_receive_data = []
 		# print([hex(x)[2:].zfill(2) for x in data])
 		self.serial_receive_data.extend([hex(x)[2:].zfill(2) for x in data])
 		# print(len(self.serial_receive_data))
@@ -221,12 +261,14 @@ class Serial(object):
 			print(self.serial_receive_data)
 		else:
 			pass
+		# update timestamp
+		self.timestamp = time.time()
 
 if __name__ == '__main__':
 	serial = Serial()
-	time.sleep(1)
 	count = 0
 	while count < 9:
+		pass
 		# print("Count: %s"%count)
-		time.sleep(1)
+		# stime.sleep(1)
 		# count += 1
