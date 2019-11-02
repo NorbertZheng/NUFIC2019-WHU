@@ -2,7 +2,7 @@ module debug_ThresholdCutter #(
 	parameter		// config enable
 					CONFIG_EN							=	0,		// do not enable config
 					// config
-					CLK_FRE								=	40,		// 50MHz
+					CLK_FRE								=	50,		// 50MHz
 					BAUD_RATE							=	115200,	// 115200Hz (4800, 19200, 38400, 57600, 115200, 38400...)
 					STOP_BIT							=	0,		// 0 : 1-bit stop-bit, 1 : 2-bit stop-bit
 					CHECK_BIT							=	0,		// 0 : no check-bit, 1 : odd, 2 : even
@@ -20,14 +20,16 @@ module debug_ThresholdCutter #(
 					WINDOW_DEPTH_INDEX					=	7,				// support up to 128 windows
 					WINDOW_DEPTH						=	100,			// 100 windows
 					WINDOW_WIDTH						=	(32 << 3),		// 32B window
-					THRESHOLD							=	32'h0010_0000,	// threshold
-					BLOCK_NUM_INDEX						=	3,				// 2 ** 6 == 64 blocks		// 16	// 8
+					THRESHOLD							=	32'h0005_0000,	// threshold
+					G_THRESHOLD							=	32'h0040_0000,
+					BLOCK_NUM_INDEX						=	0,				// 2 ** 6 == 64 blocks		// 16	// 8
 					// parameter for package
 					A_OFFSET							=	2,				// A's offset
 					// parameter for square
 					SQUARE_SRC_DATA_WIDTH				=	16,				// square src data width
 					// parameter for preset-sequence
-					PRESET_SEQUENCE						=	64'h00_01_02_03_04_05_06_07,	// 128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
+					PRESET_SEQUENCE_LENG				=	8,
+					PRESET_SEQUENCE						=	8'h00,			// 64'h00_01_02_03_04_05_06_07,	// 128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
 					// parameter for package
 					PACKAGE_SIZE						=	11,
 					PACKAGE_NUM							=	4,
@@ -35,6 +37,7 @@ module debug_ThresholdCutter #(
 					// parameter for data buffer
 					TOTAL_PACKAGE		=	416,
 					DATA_DEPTH			=	16,
+					DATA_DEPTH_INDEX	=	4,
 					DATA_BYTE_SHIFT		=	5,
 					DATA_BYTE_WIDTH		=	32,
 	`ifndef			DATA_BIT_WIDTH
@@ -67,6 +70,7 @@ module debug_ThresholdCutter #(
 	// start AXI read
 	wire debug_read_start;
 	wire [31:0] debug_AXI_reader_axi_araddr_start;
+	wire debug_transmit_done;
 	// AXI signals
 	// AXI read control signals
 	wire [3:0] AXI_reader_axi_arid;
@@ -87,6 +91,7 @@ module debug_ThresholdCutter #(
 	wire [WINDOW_DEPTH - 1:0] ThresholdCutterWindow_flag_o;
 	wire AXI_reader_read_start;
 	wire [31:0] AXI_reader_axi_araddr_start;
+	wire AXI_reader_transmit_done;
 	// AXI RAM signals
 	// ram safe access
 	wire rsta_busy, rstb_busy;
@@ -116,6 +121,7 @@ module debug_ThresholdCutter #(
 		// parameter for data buffer
 		.TOTAL_PACKAGE(TOTAL_PACKAGE),
 		.DATA_DEPTH(DATA_DEPTH),
+		.DATA_DEPTH_INDEX(DATA_DEPTH_INDEX),
 		.DATA_BYTE_SHIFT(DATA_BYTE_SHIFT),
 		.DATA_BYTE_WIDTH(DATA_BYTE_WIDTH),
 		// parameter for uart_controller
@@ -130,6 +136,7 @@ module debug_ThresholdCutter #(
 		// start AXI read
 		.read_start						(debug_read_start					),
 		.AXI_reader_axi_araddr_start	(debug_AXI_reader_axi_araddr_start	),
+		.transmit_done					(debug_transmit_done				),
 
 		// uart signals
 		.uart_rx						(uart_rx						),		// temp useless
@@ -155,6 +162,7 @@ module debug_ThresholdCutter #(
 	);
 	assign debug_read_start = AXI_reader_read_start;
 	assign debug_AXI_reader_axi_araddr_start = AXI_reader_axi_araddr_start;
+	assign AXI_reader_transmit_done = debug_transmit_done;
 
 	// ThresholdCutter
 	ThresholdCutter #(
@@ -186,6 +194,7 @@ module debug_ThresholdCutter #(
 		// parameter for square
 		.SQUARE_SRC_DATA_WIDTH(SQUARE_SRC_DATA_WIDTH),				// square src data width
 		// parameter for preset-sequence
+		.PRESET_SEQUENCE_LENG(PRESET_SEQUENCE_LENG),
 		.PRESET_SEQUENCE(PRESET_SEQUENCE),
 		// parameter for package
 		.PACKAGE_SIZE(PACKAGE_SIZE),
@@ -207,6 +216,7 @@ module debug_ThresholdCutter #(
 
 		.AXI_reader_read_start			(AXI_reader_read_start					),
 		.AXI_reader_axi_araddr_start	(AXI_reader_axi_araddr_start			),
+		.AXI_reader_transmit_done		(AXI_reader_transmit_done				),
 
 		// AXI RAM signals
 		// ram safe access

@@ -10,7 +10,7 @@ module test_debug_AXI_reader #(
 	`define			DATA_BIT_WIDTH		(DATA_BYTE_WIDTH << 3)
 	`endif
 					// parameter for uart_controller
-					CLK_FRE				=	50,
+					CLK_FRE				=	25,
 					BAUD_RATE			=	115200,
 					TX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
 					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH

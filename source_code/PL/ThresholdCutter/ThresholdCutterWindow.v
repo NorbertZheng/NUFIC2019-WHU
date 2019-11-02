@@ -20,7 +20,8 @@ module ThresholdCutterWindow #(
 	`define			SQUARE_RES_DATA_WIDTH	(SQUARE_SRC_DATA_WIDTH << 1)
 	`endif
 					// parameter for preset-sequence
-					PRESET_SEQUENCE			=	128'h00_01_02_03_04_05_06_07_08_09_00_01_02_03_04_05,
+					PRESET_SEQUENCE_LENG	=	64,
+					PRESET_SEQUENCE			=	64'h00_01_02_03_04_05_06_07,
 					DATA_BYTE_SHIFT			=	5
 ) (
 	input								clk,
@@ -34,6 +35,7 @@ module ThresholdCutterWindow #(
 	// for debug_AXI_reader
 	output	reg							AXI_reader_read_start,
 	output	reg	[31:0]					AXI_reader_axi_araddr_start,
+	input								AXI_reader_transmit_done,
 
 	// AXI RAM signals
 	// ram safe access
@@ -57,6 +59,14 @@ module ThresholdCutterWindow #(
 	output								s_axi_rvalid,
 	input								s_axi_rready
 );
+
+	localparam		ThresholdCutterWindow_IDLE	=	3'b000,
+					ThresholdCutterWindow_READ	=	3'b001,
+					ThresholdCutterWindow_WRITE	=	3'b010,
+					ThresholdCutterWindow_BREAK	=	3'b011,
+					ThresholdCutterWindow_TAG	=	3'b100,
+					ThresholdCutterWindow_END	=	3'b101,
+					ThresholdCutterWindow_WAITRD=	3'b110;
 
 	// bram signals
 	reg bram_wen;
@@ -83,20 +93,25 @@ module ThresholdCutterWindow #(
 
 	// inner signals
 	integer j;
-	reg [WINDOW_WIDTH - 1:0] window_data[WINDOW_DEPTH - 1:0];
+	// reg [WINDOW_WIDTH - 1:0] window_data[WINDOW_DEPTH - 1:0];
 	reg [WINDOW_DEPTH - 1:0] window_tag;
 	reg [WINDOW_DEPTH_INDEX - 1:0] ptr;							// point to next loc to write
 	// reg [WINDOW_DEPTH_INDEX - 1:0] ptrPlus1;					// next to write, restore it!!!
 	reg [`BLOCK_DEPTH_INDEX - 1:0] block_ptr;
-	reg [BLOCK_NUM_INDEX - 1:0] block_no;
+	// reg [BLOCK_NUM_INDEX - 1:0] block_no;
 	wire break_flag = ~(|flag_o);								// all less than threshold
 	reg window_data_fulfill;									// when first fulfill it, set to 1'b1, and never change
 	reg [WINDOW_DEPTH_INDEX - 1:0] valid_cnt;					// when break_flag, set to 0, and set window_data_fulfill to 0
 	reg data_wen_delay;
 	// reg [127:0] preset_sequence = PRESET_SEQUENCE;
-	reg [63:0] preset_sequence = PRESET_SEQUENCE;
+	wire [7:0] preset_sequence[PRESET_SEQUENCE_LENG - 1:0];
+	genvar l;
+	generate
+	for (l = 0; l < (PRESET_SEQUENCE_LENG >> 3); l = l + 1)
+		assign preset_sequence[l] = PRESET_SEQUENCE[(l << 3) + 7:(l << 3)];
+	endgenerate
 	reg write_tag;
-	// for debug
+	/*// for debug
 	(* mark_debug = "true" *)wire [WINDOW_WIDTH - 1:0] debug_window_data[WINDOW_DEPTH - 1:0];
 	genvar k;
 	generate
@@ -104,7 +119,24 @@ module ThresholdCutterWindow #(
 		begin
 		assign debug_window_data[k] = window_data[k];
 		end
-	endgenerate
+	endgenerate*/
+
+	// window_data signals
+	reg window_data_wen;
+	reg [WINDOW_DEPTH_INDEX - 1:0] window_data_addr;
+	reg [WINDOW_WIDTH - 1:0] window_data_data_i;
+	wire [WINDOW_WIDTH - 1:0] window_data_data_o;
+
+	// window_data
+	wbram m_window_data(
+		.clka		(clk				), 
+		.ena		(1'b1				), 
+		.wea		(window_data_wen	), 
+		.addra		(window_data_addr	), 
+		.dina		(window_data_data_i	), 
+		.douta		(window_data_data_o	)
+	);
+	// assign window_data_addr = ptr - 1'b1;		// for 1-cycle delay
 
 	/*// energy flag_o
 	wire [`SQUARE_RES_DATA_WIDTH - 1:0] squareSum[WINDOW_DEPTH - 1:0];
@@ -185,31 +217,31 @@ module ThresholdCutterWindow #(
 	endgenerate*/
 	assign flag_o = window_tag;
 
+	reg [2:0] ThresholdCutterWindow_state;
+	reg ThresholdCutterWindow_delay;
+	reg [2:0] ThresholdCutterWindow_cnt;
 	always@ (posedge clk)
 		begin
 		if (!rst_n)
 			begin
-			for (j = 0; j < WINDOW_DEPTH; j = j + 1)
-				begin
-				// inner signals
-				window_data[j] <= {WINDOW_WIDTH{1'b0}};
-				end
+			// state
+			ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+			// window_data
+			window_data_addr <= {WINDOW_DEPTH_INDEX{1'b0}};
+			window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+			window_data_wen <= 1'b0;
 			// inner signals
 			window_tag <= {WINDOW_DEPTH{1'b0}};
 			ptr <= {WINDOW_DEPTH_INDEX{1'b0}};
-			// ptrPlus1 <= 1;
+			ThresholdCutterWindow_delay <= 1'b0;
+			ThresholdCutterWindow_cnt <= 3'b0;
 			block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};		// init as 0xffff, always point to the last write unit
-			block_no <= {BLOCK_NUM_INDEX{1'b0}};
+			// block_no <= {BLOCK_NUM_INDEX{1'b0}};
 			window_data_fulfill <= 1'b0;
 			valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
-			data_wen_delay <= 1'b0;
 			// for bram
 			bram_wen <= 1'b0;
 			bram_data_i <= {WINDOW_WIDTH{1'b0}};
-			// for dram
-			write_tag <= 1'b0;
-			// dram_wen <= 1'b0;
-			// dram_data_i <= 8'b0;
 			// output
 			AXI_reader_read_start <= 1'b0;
 			AXI_reader_axi_araddr_start <= 32'b0;
@@ -217,144 +249,114 @@ module ThresholdCutterWindow #(
 		else
 			begin
 			data_wen_delay <= data_wen;
-			if (data_wen)		// write data
+			if (!AXI_reader_transmit_done)
 				begin
+				// do nothing
+				// state
+				ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+				// window_data
+				window_data_addr <= {WINDOW_DEPTH_INDEX{1'b0}};
+				window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+				window_data_wen <= 1'b0;
 				// inner signals
-				window_data[ptr] <= data_i[WINDOW_WIDTH:1];
-				window_tag[ptr] <= data_i[0];
-				valid_cnt <= valid_cnt + 1'b1;
-				if (ptr == WINDOW_DEPTH - 1)		ptr <= {WINDOW_DEPTH_INDEX{1'b0}};			// back up
-				else								ptr <= ptr + 1'b1;
-				/*if (ptrPlus1 == WINDOW_DEPTH - 1)	ptrPlus1 <= {WINDOW_DEPTH_INDEX{1'b0}};			// back up
-				else								ptrPlus1 <= ptrPlus1 + 1'b1;*/
-				if (valid_cnt == WINDOW_DEPTH - 1)					// we fulfill the window_data
-					begin
-					window_data_fulfill <= 1'b1;
-					end
-				// for dram
-				write_tag <= 1'b0;
-				// dram_wen <= 1'b0;
-				// dram_data_i <= 8'b0;
+				window_tag <= {WINDOW_DEPTH{1'b0}};
+				ptr <= {WINDOW_DEPTH_INDEX{1'b0}};
+				ThresholdCutterWindow_delay <= 1'b0;
+				ThresholdCutterWindow_cnt <= 3'b0;
+				block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};		// init as 0xffff, always point to the last write unit
+				// block_no <= {BLOCK_NUM_INDEX{1'b0}};
+				window_data_fulfill <= 1'b0;
+				valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
+				// for bram
+				bram_wen <= 1'b0;
+				bram_data_i <= {WINDOW_WIDTH{1'b0}};
 				// output
 				AXI_reader_read_start <= 1'b0;
 				AXI_reader_axi_araddr_start <= 32'b0;
 				end
 			else
-				begin
-				if (write_tag)								// means we already get the end
+			case (ThresholdCutterWindow_state)
+				ThresholdCutterWindow_IDLE:
 					begin
-					// inner signals, window_data & ptr do not change
-					block_ptr <= block_ptr + 1'b1;
-					// for bram
-					bram_wen <= 1'b1;
-					bram_data_i <= {248'h0, preset_sequence[block_no[2:0]]};			/////////////////////////////////////////////////
-					// for dram
-					write_tag <= 1'b0;
-					// output
-					AXI_reader_read_start <= 1'b1;
-					AXI_reader_axi_araddr_start <= {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX){1'b0}}, {block_no, {`BLOCK_DEPTH_INDEX{1'b0}}}};
-					end
-				else if (break_flag)	// to break data stream
-					begin
-					if (block_ptr < `BLOCK_DEPTH - 1)			// current block is not full, fill it with 32'b0
+					if (data_wen)		// write data
 						begin
-						// inner signals, window_data & ptr do not change
-						block_ptr <= block_ptr + 1'b1;
-						valid_cnt <= {WINDOW_DEPTH{1'b0}};
-						window_data_fulfill <= 1'b0;
-						// for bram
-						bram_wen <= 1'b1;
-						bram_data_i <= 32'b0;
-						// for dram
-						if (block_ptr == `BLOCK_DEPTH - 2)		write_tag <= 1'b1;						// prepare to write the last
-						else									write_tag <= 1'b0;
-						// dram_wen <= 1'b0;
-						// dram_data_i <= 8'b0;
-						// output
-						AXI_reader_read_start <= 1'b0;
-						AXI_reader_axi_araddr_start <= 32'b0;
-						end
-					else if (block_ptr == `BLOCK_DEPTH)		// fill complete!
-						begin
-						// inner signals, window_data & ptr do not change, block_ptr must not change, left it to data_wen
-						block_no <= block_no + 1'b1;			// next block
-						block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};
-						valid_cnt <= {WINDOW_DEPTH{1'b0}};
-						window_data_fulfill <= 1'b0;
-						// for bram
-						bram_wen <= 1'b0;						// not write bram
-						bram_data_i <= 32'b0;
-						// for dram
-						write_tag <= 1'b0;
-						// dram_wen <= 1'b1;
-						// dram_data_i <= preset_sequence[block_no[3:0]];
-						// output
-						AXI_reader_read_start <= 1'b0;
-						AXI_reader_axi_araddr_start <= 32'b0;
-						end
-					else										// data is not valid
-						begin
+						// window_data
+						window_data_addr <= ptr;
+						window_data_data_i <= data_i[WINDOW_WIDTH:1];
+						window_data_wen <= 1'b1;
 						// inner signals
-						block_ptr = {`BLOCK_DEPTH_INDEX{1'b1}};
-						valid_cnt <= {WINDOW_DEPTH{1'b0}};
-						window_data_fulfill <= 1'b0;
-						// for bram
-						bram_wen <= 1'b0;						// not write bram
-						bram_data_i <= 32'b0;
-						// for dram
-						write_tag <= 1'b0;
-						// dram_wen <= 1'b0;
-						// dram_data_i <= 8'b0;
+						// window_data[ptr] <= data_i[WINDOW_WIDTH:1];
+						window_tag[ptr] <= data_i[0];
+						valid_cnt <= valid_cnt + 1'b1;
+						if (ptr == WINDOW_DEPTH - 1)		ptr <= {WINDOW_DEPTH_INDEX{1'b0}};			// back up
+						else								ptr <= ptr + 1'b1;
+						if (valid_cnt == WINDOW_DEPTH - 1)					// we fulfill the window_data
+							begin
+							window_data_fulfill <= 1'b1;
+							end
 						// output
 						AXI_reader_read_start <= 1'b0;
 						AXI_reader_axi_araddr_start <= 32'b0;
 						end
-					end
-				else											// not in break, data is valid or is trying to be valid
-					begin
-					if (window_data_fulfill)					// data is valid
+					else if (break_flag)
 						begin
+						// window_data
+						window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+						window_data_wen <= 1'b0;
+						if (block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}})
+							begin
+							// do nothing
+							// inner signals
+							block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};
+							valid_cnt <= {WINDOW_DEPTH{1'b0}};
+							window_data_fulfill <= 1'b0;
+							// for bram
+							bram_wen <= 1'b0;						// not write bram
+							bram_data_i <= {WINDOW_WIDTH{1'b0}};
+							// output
+							AXI_reader_read_start <= 1'b0;
+							AXI_reader_axi_araddr_start <= 32'b0;
+							end
+						else
+							begin
+							// state
+							ThresholdCutterWindow_state <= ThresholdCutterWindow_BREAK;
+							// inner signals
+							ThresholdCutterWindow_cnt <= 3'b0;
+							end
+						end
+					else if (window_data_fulfill)		// data is valid
+						begin
+						// window_data
+						window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+						window_data_wen <= 1'b0;
 						if (data_wen_delay)						// ensure 1-period write, avoid double-write
 							begin
-							if (block_ptr < `BLOCK_DEPTH - 1 || block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}})		// current block is not full, even empty
+							if ((block_ptr < `BLOCK_DEPTH) || (block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}}))		// current block is not full, even empty
 								begin
+								// state
+								ThresholdCutterWindow_state <= ThresholdCutterWindow_READ;
 								// inner signals, window_data & ptr do not change
+								ThresholdCutterWindow_delay <= 1'b0;
 								block_ptr <= block_ptr + 1'b1;
+								// window_data
+								window_data_addr <= ptr;
 								// for bram
-								bram_wen <= 1'b1;
-								bram_data_i <= window_data[ptr];
-								// for dram
-								if (block_ptr == `BLOCK_DEPTH - 2)		write_tag <= 1'b1;						// prepare to write the last
-								else									write_tag <= 1'b0;
-								// dram_wen <= 1'b0;
-								// dram_data_i <= 8'b0;
+								bram_wen <= 1'b0;
 								// output
 								AXI_reader_read_start <= 1'b0;
 								AXI_reader_axi_araddr_start <= 32'b0;
-								end
-							else if (block_ptr == `BLOCK_DEPTH)		// one block is full (should not happen)
-								begin
-								// inner signals
-								block_no <= block_no + 1'b1;		// next block
-								block_ptr <= {`BLOCK_DEPTH_INDEX{1'b0}};
-								// for bram
-								bram_wen <= 1'b1;
-								bram_data_i <= window_data[ptr];
-								// for dram
-								write_tag <= 1'b0;
-								// dram_wen <= 1'b1;
-								// dram_data_i <= preset_sequence[block_no[3:0]];
-								// output
-								AXI_reader_read_start <= 1'b0;
-								AXI_reader_axi_araddr_start <= 32'b0;
+								if (block_ptr == `BLOCK_DEPTH - 1)
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+									end
 								end
 							end
 						else
 							begin
 							// for bram
 							bram_wen <= 1'b0;
-							// for dram
-							dram_wen <= 1'b0;
 							// output
 							AXI_reader_read_start <= 1'b0;
 							AXI_reader_axi_araddr_start <= 32'b0;
@@ -368,7 +370,170 @@ module ThresholdCutterWindow #(
 						AXI_reader_axi_araddr_start <= 32'b0;
 						end
 					end
-				end
+				ThresholdCutterWindow_READ:
+					begin
+					// window_data
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					// block_no <= {BLOCK_NUM_INDEX{1'b0}};
+					// for bram
+					bram_wen <= 1'b0;
+					bram_data_i <= {WINDOW_WIDTH{1'b0}};
+					// output
+					AXI_reader_read_start <= 1'b0;
+					AXI_reader_axi_araddr_start <= 32'b0;
+					if (!ThresholdCutterWindow_delay)
+						begin
+						// do nothing
+						ThresholdCutterWindow_delay <= ThresholdCutterWindow_delay + 1'b1;
+						end
+					else
+						begin
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_WRITE;
+						end
+					end
+				ThresholdCutterWindow_WRITE:
+					begin
+					// window_data
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					// output
+					AXI_reader_read_start <= 1'b0;
+					AXI_reader_axi_araddr_start <= 32'b0;
+					if (ThresholdCutterWindow_cnt == 3'b000)
+						begin
+						// for bram
+						bram_wen <= 1'b1;
+						bram_data_i <= window_data_data_o;
+						ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+						end
+					else
+						begin
+						if (ThresholdCutterWindow_cnt == 3'b010)
+							begin
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							// for bram
+							bram_wen <= 1'b0;
+							end
+						else if (ThresholdCutterWindow_cnt == 3'b011)
+							begin
+							// for bram
+							bram_wen <= 1'b0;
+							// inner signals
+							ThresholdCutterWindow_cnt <= 3'b0;
+							// state
+							ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+							end
+						else
+							begin
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							end
+						end
+					end
+				ThresholdCutterWindow_BREAK:
+					begin
+					// window_data
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
+						begin
+						// inner signals
+						valid_cnt <= {WINDOW_DEPTH{1'b0}};
+						window_data_fulfill <= 1'b0;
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
+						if (ThresholdCutterWindow_cnt == 3'b000)
+							begin
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							// inner signals, window_data & ptr do not change
+							block_ptr <= block_ptr + 1'b1;
+							ThresholdCutterWindow_delay <= 1'b1;
+							// for bram
+							bram_wen <= 1'b1;
+							bram_data_i <= {WINDOW_WIDTH{1'b0}};
+							if (block_ptr == `BLOCK_DEPTH - 1)
+								begin
+								// state
+								ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+								end
+							end
+						else
+							begin
+							// inner signals
+							if (ThresholdCutterWindow_cnt == 3'b010)
+								begin
+								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+								// for bram
+								bram_wen <= 1'b0;
+								end
+							else if (ThresholdCutterWindow_cnt == 3'b011)
+								begin
+								ThresholdCutterWindow_cnt <= 3'b0;
+								// for bram
+								bram_wen <= 1'b0;
+								end
+							else
+								begin
+								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+								end
+							end
+						end
+					end
+				ThresholdCutterWindow_TAG:
+					begin
+					// state
+					ThresholdCutterWindow_state <= ThresholdCutterWindow_END;
+					// window_data
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					// inner signals, window_data & ptr do not change
+					block_ptr <= block_ptr + 1'b1;
+					// for bram
+					bram_wen <= 1'b1;
+					bram_data_i <= {WINDOW_WIDTH{1'b1}};
+					end
+				ThresholdCutterWindow_END:
+					begin
+					// state
+					ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+					// window_data
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					// inner signals, window_data & ptr do not change
+					block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};
+					// for bram
+					bram_wen <= 1'b0;
+					bram_data_i <= {WINDOW_WIDTH{1'b0}};
+					// output
+					AXI_reader_read_start <= 1'b1;
+					AXI_reader_axi_araddr_start <= 32'b0;
+					end
+				default:
+					begin
+					// state
+					ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+					// window_data
+					window_data_addr <= {WINDOW_DEPTH_INDEX{1'b0}};
+					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
+					window_data_wen <= 1'b0;
+					// inner signals
+					ThresholdCutterWindow_delay <= 1'b0;
+					window_tag <= {WINDOW_DEPTH{1'b0}};
+					ptr <= {WINDOW_DEPTH_INDEX{1'b0}};
+					block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};		// init as 0xffff, always point to the last write unit
+					// block_no <= {BLOCK_NUM_INDEX{1'b0}};
+					window_data_fulfill <= 1'b0;
+					valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
+					// for bram
+					bram_wen <= 1'b0;
+					bram_data_i <= {WINDOW_WIDTH{1'b0}};
+					// output
+					AXI_reader_read_start <= 1'b0;
+					AXI_reader_axi_araddr_start <= 32'b0;
+					end
+			endcase
 			end
 		end
 
@@ -469,7 +634,8 @@ module ThresholdCutterWindow #(
 		assign s_axi_awsize = 3'b101;			// 32 bytes
 		assign s_axi_awid = 4'd0;
 		assign s_axi_awlen = 8'd0;
-		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX - DATA_BYTE_SHIFT){1'b0}}, {block_no, block_ptr}, {DATA_BYTE_SHIFT{1'b0}}};
+		assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX - DATA_BYTE_SHIFT){1'b0}}, block_ptr, {DATA_BYTE_SHIFT{1'b0}}};
+		// assign s_axi_awaddr = {{(32 - `BLOCK_DEPTH_INDEX - BLOCK_NUM_INDEX - DATA_BYTE_SHIFT){1'b0}}, {block_no, block_ptr}, {DATA_BYTE_SHIFT{1'b0}}};
 		assign s_axi_wlast = 1'b1;
 		assign s_axi_wvalid = bram_wen;
 		assign s_axi_wstrb = 32'hff_ff_ff_ff;	// all enable

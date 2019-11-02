@@ -2,6 +2,7 @@ module debug_AXI_reader #(
 	parameter		// parameter for data buffer
 					TOTAL_PACKAGE		=	416,
 					DATA_DEPTH			=	16,
+					DATA_DEPTH_INDEX	=	4,
 					DATA_BYTE_SHIFT		=	5,
 					DATA_BYTE_WIDTH		=	32,
 	`ifndef			DATA_BIT_WIDTH
@@ -25,6 +26,7 @@ module debug_AXI_reader #(
 	// start AXI read
 	input				read_start					,
 	input		[31:0]	AXI_reader_axi_araddr_start	,
+	output	reg			transmit_done				,
 
 	// uart signals
 	input				uart_rx						,		// temp useless
@@ -74,12 +76,13 @@ module debug_AXI_reader #(
 	for (i = 0; i < DATA_DEPTH; i = i + 1)
 		assign debug_buffer[i] = buffer[i];
 	endgenerate
-	reg [DATA_DEPTH - 1:0] senddata_cnt;
+	reg [DATA_DEPTH_INDEX - 1:0] senddata_cnt;
 	reg senddata_cnt_flag;
 	reg [9:0] package_cnt;
 	reg [2:0] AXI_reader_state;
 	reg [`TX_DATA_BIT_WIDTH - 1:0] AXI_reader_tx_data;
 	reg AXI_reader_tx_vld;
+	(* mark_debug = "true" *)wire [`DATA_BIT_WIDTH - 1:0] debug_AXI_reader_axi_rdata = AXI_reader_axi_rdata;
 	always@ (posedge clk)
 		begin
 		if (!rst_n)
@@ -90,11 +93,12 @@ module debug_AXI_reader #(
 			senddata_cnt_flag <= 1'b0;
 			AXI_reader_delay <= 1'b0;
 			package_cnt <= 10'b0;
-			senddata_cnt <= {DATA_DEPTH{1'b0}};
+			senddata_cnt <= {DATA_DEPTH_INDEX{1'b0}};
 			// for uart_controller
 			AXI_reader_tx_data <= {`TX_DATA_BIT_WIDTH{1'b0}};
 			AXI_reader_tx_vld <= 1'b0;
 			// output
+			transmit_done <= 1'b1;
 			AXI_reader_axi_araddr <= 32'b0;
 			AXI_reader_axi_arvalid <= 1'b0;
 			AXI_reader_axi_rready <= 1'b0;
@@ -116,6 +120,7 @@ module debug_AXI_reader #(
 						AXI_reader_tx_data <= {`TX_DATA_BIT_WIDTH{1'b0}};
 						AXI_reader_tx_vld <= 1'b0;
 						// output
+						transmit_done <= 1'b0;
 						AXI_reader_axi_araddr <= AXI_reader_axi_araddr_start;
 						AXI_reader_axi_arvalid <= 1'b1;
 						AXI_reader_axi_rready <= 1'b0;
@@ -126,11 +131,12 @@ module debug_AXI_reader #(
 						AXI_reader_state <= AXI_reader_IDLE;
 						// inner signals
 						package_cnt <= 10'b0;
-						senddata_cnt <= {DATA_DEPTH{1'b0}};
+						senddata_cnt <= {DATA_DEPTH_INDEX{1'b0}};
 						// for uart_controller
 						AXI_reader_tx_data <= {`TX_DATA_BIT_WIDTH{1'b0}};
 						AXI_reader_tx_vld <= 1'b0;
 						// output
+						transmit_done <= 1'b1;
 						AXI_reader_axi_araddr <= 32'b0;
 						AXI_reader_axi_arvalid <= 1'b0;
 						AXI_reader_axi_rready <= 1'b0;
@@ -184,7 +190,7 @@ module debug_AXI_reader #(
 							// inner signals
 							senddata_cnt_flag <= 1'b0;
 							AXI_reader_delay <= 1'b1;
-							senddata_cnt <= {DATA_DEPTH{1'b0}};
+							senddata_cnt <= {DATA_DEPTH_INDEX{1'b0}};
 							// output
 							AXI_reader_axi_rready <= 1'b1;
 							end
@@ -224,6 +230,7 @@ module debug_AXI_reader #(
 									// state
 									AXI_reader_state <= AXI_reader_IDLE;
 									// output
+									transmit_done <= 1'b1;
 									AXI_reader_axi_araddr <= 32'b0;
 									AXI_reader_axi_arvalid <= 1'b0;
 									AXI_reader_axi_rready <= 1'b0;
@@ -272,11 +279,12 @@ module debug_AXI_reader #(
 					// inner signals
 					senddata_cnt_flag <= 1'b0;
 					package_cnt <= 10'b0;
-					senddata_cnt <= {DATA_DEPTH{1'b0}};
+					senddata_cnt <= {DATA_DEPTH_INDEX{1'b0}};
 					// for uart_controller
 					AXI_reader_tx_data <= {`TX_DATA_BIT_WIDTH{1'b0}};
 					AXI_reader_tx_vld <= 1'b0;
 					// output
+					transmit_done <= 1'b1;
 					AXI_reader_axi_araddr <= 32'b0;
 					AXI_reader_axi_arvalid <= 1'b0;
 					AXI_reader_axi_rready <= 1'b0;
