@@ -70,7 +70,7 @@ class Serial(object):
 				self.serial_listbox = self.temp_serial
 			elif platform.system() == "Linux":
 				self.temp_serial = list()
-				self.temp_serial = self.find_sub_tty()
+				self.temp_serial = self.find_usb_tty()
 				# can change GUI according to temp_serial
 				self.serial_listbox = self.temp_serial
 		except Exception as e:
