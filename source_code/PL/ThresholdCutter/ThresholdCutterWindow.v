@@ -287,12 +287,19 @@ module ThresholdCutterWindow #(
 						// inner signals
 						// window_data[ptr] <= data_i[WINDOW_WIDTH:1];
 						window_tag[ptr] <= data_i[0];
-						valid_cnt <= valid_cnt + 1'b1;
 						if (ptr == WINDOW_DEPTH - 1)		ptr <= {WINDOW_DEPTH_INDEX{1'b0}};			// back up
 						else								ptr <= ptr + 1'b1;
 						if (valid_cnt == WINDOW_DEPTH - 1)					// we fulfill the window_data
 							begin
 							window_data_fulfill <= 1'b1;
+							end
+						else if (data_i[0])		// valid!
+							begin
+							valid_cnt <= valid_cnt + 1'b1;
+							end
+						else
+							begin
+							valid_cnt <= {WINDOW_DEPTH_INDEX{1'b0}};
 							end
 						// output
 						AXI_reader_read_start <= 1'b0;
@@ -438,7 +445,22 @@ module ThresholdCutterWindow #(
 					// window_data
 					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
 					window_data_wen <= 1'b0;
-					if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
+					if (block_ptr < WINDOW_DEPTH)
+						begin
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+						// inner signals
+						valid_cnt <= {WINDOW_DEPTH{1'b0}};
+						window_data_fulfill <= 1'b0;
+						block_ptr <= {`BLOCK_DEPTH_INDEX{1'b1}};
+						// output
+						AXI_reader_read_start <= 1'b0;
+						AXI_reader_axi_araddr_start <= 32'b0;
+						// for bram
+						bram_wen <= 1'b0;
+						bram_data_i <= {WINDOW_WIDTH{1'b0}};
+						end
+					else if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
 						begin
 						// inner signals
 						valid_cnt <= {WINDOW_DEPTH{1'b0}};

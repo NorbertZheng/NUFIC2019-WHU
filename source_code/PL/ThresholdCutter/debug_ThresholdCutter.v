@@ -20,7 +20,7 @@ module debug_ThresholdCutter #(
 					WINDOW_DEPTH_INDEX					=	7,				// support up to 128 windows
 					WINDOW_DEPTH						=	100,			// 100 windows
 					WINDOW_WIDTH						=	(32 << 3),		// 32B window
-					THRESHOLD							=	32'h0004_0000,	// threshold
+					THRESHOLD							=	32'h0010_0000,	// threshold
 					G_THRESHOLD							=	32'h0040_0000,
 					BLOCK_NUM_INDEX						=	0,				// 2 ** 6 == 64 blocks		// 16	// 8
 					// parameter for package
