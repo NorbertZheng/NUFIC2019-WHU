@@ -74,7 +74,9 @@ module debug_AXI_reader #(
 	genvar i;
 	generate
 	for (i = 0; i < DATA_DEPTH; i = i + 1)
+		begin
 		assign debug_buffer[i] = buffer[i];
+		end
 	endgenerate
 	reg [DATA_DEPTH_INDEX - 1:0] senddata_cnt;
 	reg senddata_cnt_flag;

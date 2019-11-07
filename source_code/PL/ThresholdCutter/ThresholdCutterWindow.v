@@ -108,7 +108,9 @@ module ThresholdCutterWindow #(
 	genvar l;
 	generate
 	for (l = 0; l < (PRESET_SEQUENCE_LENG >> 3); l = l + 1)
+		begin
 		assign preset_sequence[l] = PRESET_SEQUENCE[(l << 3) + 7:(l << 3)];
+		end
 	endgenerate
 	reg write_tag;
 	/*// for debug
@@ -341,8 +343,6 @@ module ThresholdCutterWindow #(
 							begin
 							if ((block_ptr < `BLOCK_DEPTH) || (block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}}))		// current block is not full, even empty
 								begin
-								// state
-								ThresholdCutterWindow_state <= ThresholdCutterWindow_READ;
 								// inner signals, window_data & ptr do not change
 								ThresholdCutterWindow_delay <= 1'b0;
 								block_ptr <= block_ptr + 1'b1;
@@ -357,6 +357,11 @@ module ThresholdCutterWindow #(
 									begin
 									// state
 									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+									end
+								else
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_READ;
 									end
 								end
 							end
@@ -445,7 +450,7 @@ module ThresholdCutterWindow #(
 					// window_data
 					window_data_data_i <= {WINDOW_WIDTH{1'b0}};
 					window_data_wen <= 1'b0;
-					if (block_ptr < WINDOW_DEPTH)
+					/*if (block_ptr < WINDOW_DEPTH)
 						begin
 						// state
 						ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
@@ -460,7 +465,7 @@ module ThresholdCutterWindow #(
 						bram_wen <= 1'b0;
 						bram_data_i <= {WINDOW_WIDTH{1'b0}};
 						end
-					else if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
+					else */if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
 						begin
 						// inner signals
 						valid_cnt <= {WINDOW_DEPTH{1'b0}};
@@ -476,7 +481,7 @@ module ThresholdCutterWindow #(
 							ThresholdCutterWindow_delay <= 1'b1;
 							// for bram
 							bram_wen <= 1'b1;
-							bram_data_i <= {WINDOW_WIDTH{1'b0}};
+							bram_data_i <= {{(WINDOW_WIDTH - `BLOCK_DEPTH_INDEX){1'b0}}, block_ptr};
 							if (block_ptr == `BLOCK_DEPTH - 1)
 								begin
 								// state
