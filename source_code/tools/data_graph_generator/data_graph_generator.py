@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -10,7 +11,9 @@ FREQ = 200
 period = 1 / FREQ
 AX_LOW = 8
 AZ_HIGH_PLUS1 = 14
-DATAFILE = "1.csv"
+ROLL_LOW = 24
+YAW_HIGH_PLUS1 = 30
+DATAFILE = "5.csv"
 
 def data_graph_generator(datafile):
 	alldata = []
@@ -28,6 +31,7 @@ def data_graph_generator(datafile):
 
 def data_graph(data):
 	all_A = get_all_A(data)
+	print(all_A)
 	all_loc = get_all_loc(all_A)
 	return all_loc
 
@@ -46,15 +50,44 @@ def plotDisp2D(all_loc):
 	plt.savefig("THREE2TWO.png")
 	plt.show()
 
+def get_g_acceleration(angle):
+	g_acceleration = np.zeros(np.shape(angle))
+	# print(np.shape(g_acceleration))
+	g_acceleration[:, 2] = np.cos(angle[:, 2]) * g
+	# print((np.sin(angle[:, 2]) * g))
+	g_acceleration[:, 0] = (np.sin(angle[:, 2]) * g) * np.sin(angle[:, 0])
+	g_acceleration[:, 1] = (np.sin(angle[:, 2]) * g) * np.sin(angle[:, 1])
+	return g_acceleration
+
 def get_all_A(data):
-	data = data[:, AX_LOW:AZ_HIGH_PLUS1]
-	for i in range(np.shape(data)[0]):
-		data[i, 0] = (data[i, 0] + ((data[i, 1]) << 8)) if ((data[i, 1]) < (2 ** 7)) else -((2 ** 16) - (data[i, 0] + ((data[i, 1]) << 8)))
-		data[i, 1] = (data[i, 2] + ((data[i, 3]) << 8)) if ((data[i, 3]) < (2 ** 7)) else -((2 ** 16) - (data[i, 2] + ((data[i, 3]) << 8)))
-		data[i, 2] = (data[i, 4] + ((data[i, 5]) << 8)) if ((data[i, 5]) < (2 ** 7)) else -((2 ** 16) - (data[i, 4] + ((data[i, 5]) << 8)))
-	data = (data[:, 0:3]).astype(np.float64)
-	data = data / 32768 * 16 * g
-	return data
+	# get angle
+	angle = data[:, ROLL_LOW:YAW_HIGH_PLUS1]
+	for i in range(np.shape(angle)[0]):
+		angle[i, 0] = (angle[i, 0] + ((angle[i, 1]) << 8))
+		angle[i, 1] = (angle[i, 2] + ((angle[i, 3]) << 8))
+		angle[i, 2] = (angle[i, 4] + ((angle[i, 5]) << 8))
+	angle = (angle[:, 0:3]).astype(np.float64)
+	angle = angle / 32768 * np.pi			# angle = angle / 32768 * 180
+	stop_ptr = 0
+	for i in range(np.shape(angle)[0]):
+		if (angle[i, :] == 0).all():
+			stop_ptr = i
+			break
+	# print(angle)
+	g_acceleration = get_g_acceleration(angle)
+	# print(g_acceleration)
+	# get acceleration
+	acceleration = data[:, AX_LOW:AZ_HIGH_PLUS1]
+	for i in range(np.shape(acceleration)[0]):
+		acceleration[i, 0] = (acceleration[i, 0] + ((acceleration[i, 1]) << 8)) if ((acceleration[i, 1]) < (2 ** 7)) else -((2 ** 16) - (acceleration[i, 0] + ((acceleration[i, 1]) << 8)))
+		acceleration[i, 1] = (acceleration[i, 2] + ((acceleration[i, 3]) << 8)) if ((acceleration[i, 3]) < (2 ** 7)) else -((2 ** 16) - (acceleration[i, 2] + ((acceleration[i, 3]) << 8)))
+		acceleration[i, 2] = (acceleration[i, 4] + ((acceleration[i, 5]) << 8)) if ((acceleration[i, 5]) < (2 ** 7)) else -((2 ** 16) - (acceleration[i, 4] + ((acceleration[i, 5]) << 8)))
+	acceleration = (acceleration[:, 0:3]).astype(np.float64)
+	acceleration = acceleration / 32768 * 16 * g
+	# for i in A.tolist():
+	# 	print(i)
+	acceleration -= g_acceleration
+	return acceleration
 
 def get_all_loc(all_A):
 	all_loc = np.zeros(np.shape(all_A))
