@@ -1,0 +1,10 @@
+# dir
+/sim
+/synth
+/ipshared
+/ui
+
+# generated files
+*.bmm
+*bxml
+*.log
