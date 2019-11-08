@@ -1,6 +1,7 @@
 `timescale 1ns/1ns
 module ThresholdCutterWindow #(
-	parameter		// enable simulation
+	parameter		PS_ENABLE				=	1,				// PS online
+					// enable simulation
 					SIM_ENABLE				=	0,				// enable simulation
 					// parameter for window
 					WINDOW_DEPTH_INDEX		=	7,				// support up to 128 windows
@@ -66,7 +67,8 @@ module ThresholdCutterWindow #(
 					ThresholdCutterWindow_BREAK	=	3'b011,
 					ThresholdCutterWindow_TAG	=	3'b100,
 					ThresholdCutterWindow_END	=	3'b101,
-					ThresholdCutterWindow_WAITRD=	3'b110;
+					ThresholdCutterWindow_WAITRD=	3'b110,
+					ThresholdCutterWindow_AXIS	=	3'b111;
 
 	// bram signals
 	reg bram_wen;
@@ -353,7 +355,9 @@ module ThresholdCutterWindow #(
 								// output
 								AXI_reader_read_start <= 1'b0;
 								AXI_reader_axi_araddr_start <= 32'b0;
-								if (block_ptr == `BLOCK_DEPTH - 1)
+								// state
+								ThresholdCutterWindow_state <= ThresholdCutterWindow_READ;
+								/* if (block_ptr == `BLOCK_DEPTH - 1)
 									begin
 									// state
 									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
@@ -362,7 +366,7 @@ module ThresholdCutterWindow #(
 									begin
 									// state
 									ThresholdCutterWindow_state <= ThresholdCutterWindow_READ;
-									end
+									end*/
 								end
 							end
 						else
@@ -434,8 +438,16 @@ module ThresholdCutterWindow #(
 							bram_wen <= 1'b0;
 							// inner signals
 							ThresholdCutterWindow_cnt <= 3'b0;
-							// state
-							ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+							if (block_ptr == `BLOCK_DEPTH)
+								begin
+								// state
+								ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+								end
+							else
+								begin
+								// state
+								ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+								end
 							end
 						else
 							begin
