@@ -9,7 +9,7 @@ module AXIS_data_transmitter #(
 	input									transmit_vld						,
 	input		[AXIS_DATA_WIDTH - 1:0]		transmit_data						,
 	input									transmit_last						,
-	output									transmit_rdy						,
+	output	reg								transmit_rdy						,
 
 	output	reg	[AXIS_DATA_WIDTH - 1:0]		AXIS_data_transmitter_AXIS_tdata	,
 	output		[AXIS_DATA_KEEP - 1:0]		AXIS_data_transmitter_AXIS_tkeep	,
@@ -23,6 +23,7 @@ module AXIS_data_transmitter #(
 						AXIS_data_transmitter_END		=	2'b10;
 
 	reg [1:0] AXIS_data_transmitter_state;
+	reg [1:0] AXIS_data_transmitter_delay;
 	reg AXIS_data_transmitter_transmit_last;
 	reg [AXIS_DATA_WIDTH - 1:0] AXIS_data_transmitter_transmit_data;
 	always@ (posedge clk)
@@ -32,6 +33,7 @@ module AXIS_data_transmitter #(
 			// state
 			AXIS_data_transmitter_state <= AXIS_data_transmitter_IDLE;
 			// inner signals
+			AXIS_data_transmitter_delay <= 2'b0;
 			AXIS_data_transmitter_transmit_last <= 1'b0;
 			AXIS_data_transmitter_transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
 			// output
@@ -50,6 +52,7 @@ module AXIS_data_transmitter #(
 						// state
 						AXIS_data_transmitter_state <= AXIS_data_transmitter_TRANSMIT;
 						// inner signals
+						AXIS_data_transmitter_delay <= 2'b0;
 						AXIS_data_transmitter_transmit_last <= transmit_last;
 						AXIS_data_transmitter_transmit_data <= transmit_data;
 						// output
@@ -74,29 +77,46 @@ module AXIS_data_transmitter #(
 					end
 				AXIS_data_transmitter_TRANSMIT:
 					begin
-					if (AXIS_data_transmitter_delay)
+					if (AXIS_data_transmitter_delay == 2'b11)
 						begin
-						// state
-						AXIS_data_transmitter_state <= AXIS_data_transmitter_END;
+						if (AXIS_data_transmitter_AXIS_tready)
+							begin
+							// state
+							AXIS_data_transmitter_state <= AXIS_data_transmitter_END;
+							// inner signals
+							// do nothing
+							// output
+							transmit_rdy <= 1'b0;
+							AXIS_data_transmitter_AXIS_tdata <= {AXIS_DATA_WIDTH{1'b0}};
+							AXIS_data_transmitter_AXIS_tlast <= 1'b0;
+							AXIS_data_transmitter_AXIS_tvalid <= 1'b0;
+							end
+						else
+							begin
+							// do nothing
+							end
+						end
+					else if (AXIS_data_transmitter_delay != 2'b0)
+						begin
 						// inner signals
-						// do nothing
+						AXIS_data_transmitter_delay <= AXIS_data_transmitter_delay + 1'b1;
 						// output
 						transmit_rdy <= 1'b0;
-						AXIS_data_transmitter_AXIS_tdata <= AXIS_data_transmitter_transmit_data;
-						AXIS_data_transmitter_AXIS_tvalid <= 1'b1;
-						AXIS_data_transmitter_AXIS_tlast <= AXIS_data_transmitter_transmit_last;
+						AXIS_data_transmitter_AXIS_tdata <= {AXIS_DATA_WIDTH{1'b0}};
+						AXIS_data_transmitter_AXIS_tlast <= 1'b0;
+						AXIS_data_transmitter_AXIS_tvalid <= 1'b0;
 						end
 					else
 						begin
 						// state
 						// do nothing
 						// inner signals
-						// do nothing
+						AXIS_data_transmitter_delay <= AXIS_data_transmitter_delay + 1'b1;
 						// output
 						transmit_rdy <= 1'b0;
-						AXIS_data_transmitter_AXIS_tdata <= {AXIS_DATA_WIDTH{1'b0}};
-						AXIS_data_transmitter_AXIS_tlast <= 1'b0;
-						AXIS_data_transmitter_AXIS_tvalid <= 1'b0;
+						AXIS_data_transmitter_AXIS_tdata <= AXIS_data_transmitter_transmit_data;
+						AXIS_data_transmitter_AXIS_tvalid <= 1'b1;
+						AXIS_data_transmitter_AXIS_tlast <= AXIS_data_transmitter_transmit_last;
 						end
 					end
 				AXIS_data_transmitter_END:
@@ -104,6 +124,7 @@ module AXIS_data_transmitter #(
 					// state
 					AXIS_data_transmitter_state <= AXIS_data_transmitter_IDLE;
 					// inner signals
+					AXIS_data_transmitter_delay <= 2'b0;
 					AXIS_data_transmitter_transmit_last <= 1'b0;
 					AXIS_data_transmitter_transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
 					// output
@@ -117,6 +138,7 @@ module AXIS_data_transmitter #(
 					// state
 					AXIS_data_transmitter_state <= AXIS_data_transmitter_IDLE;
 					// inner signals
+					AXIS_data_transmitter_delay <= 2'b0;
 					AXIS_data_transmitter_transmit_last <= 1'b0;
 					AXIS_data_transmitter_transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
 					// output

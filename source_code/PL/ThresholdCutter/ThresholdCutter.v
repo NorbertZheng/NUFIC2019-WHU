@@ -37,12 +37,18 @@ module ThresholdCutter #(
 					// parameter for package
 					PACKAGE_SIZE						=	11,
 					PACKAGE_NUM							=	4,
-					DATA_BYTE_SHIFT						=	5
+					DATA_BYTE_SHIFT						=	5,
+
+					// parameter for AXIS
+					AXIS_DATA_WIDTH						=	256		
 	`define			PACKAGE_TOLSIZE						(PACKAGE_NUM * PACKAGE_SIZE)
 	`define			PACKAGE_START						1
 	`define			PACKAGE_FUNC						2
 	`define			PACKAGE_SUM							11
 	`define			PACKAGE_NO_INDEX					6					// 2 ** 6 == 64
+	`ifndef PS_ENABLE
+	`define			PS_ENABLE			1
+	`endif
 ) (
 	input									clk					,
 	input									rst_n				,
@@ -54,6 +60,14 @@ module ThresholdCutter #(
 	input									BlueTooth_Txd		,
 	output									BlueTooth_Vcc		,
 	output									BlueTooth_Gnd		,
+
+	// for AXIS
+	// `ifdef PS_ENABLE
+	output									transmit_vld					,
+	output		[AXIS_DATA_WIDTH - 1:0]		transmit_data					,
+	output									transmit_last					,
+	input									transmit_rdy					,
+	// `endif
 
 	// ThresholdCutterWindow signals
 	output		[WINDOW_DEPTH - 1:0]		ThresholdCutterWindow_flag_o	,
@@ -430,7 +444,8 @@ module ThresholdCutter #(
 		// parameter for preset-sequence
 		.PRESET_SEQUENCE_LENG(PRESET_SEQUENCE_LENG),
 		.PRESET_SEQUENCE(PRESET_SEQUENCE),
-		.DATA_BYTE_SHIFT(DATA_BYTE_SHIFT)
+		.DATA_BYTE_SHIFT(DATA_BYTE_SHIFT),
+		.AXIS_DATA_WIDTH(AXIS_DATA_WIDTH)
 	) m_ThresholdCutterWindow (
 		.clk							(clk_50m								),
 		.rst_n							(rst_n									),
@@ -439,6 +454,13 @@ module ThresholdCutter #(
 		.data_wen						(ThresholdCutterWindow_data_wen			),
 
 		.flag_o							(ThresholdCutterWindow_flag_o			),
+
+		// `ifdef PS_ENABLE
+		.transmit_vld					(transmit_vld							),
+		.transmit_data					(transmit_data							),
+		.transmit_last					(transmit_last							),
+		.transmit_rdy					(transmit_rdy							),
+		// `endif
 
 		.AXI_reader_read_start			(AXI_reader_read_start					),
 		.AXI_reader_axi_araddr_start	(AXI_reader_axi_araddr_start			),

@@ -1,7 +1,7 @@
 `timescale 1ns/1ns
 module ThresholdCutterWindow #(
-	parameter		PS_ENABLE				=	1,				// PS online
-					// enable simulation
+	// `define			PS_ENABLE				1
+	parameter		// enable simulation
 					SIM_ENABLE				=	0,				// enable simulation
 					// parameter for window
 					WINDOW_DEPTH_INDEX		=	7,				// support up to 128 windows
@@ -23,7 +23,11 @@ module ThresholdCutterWindow #(
 					// parameter for preset-sequence
 					PRESET_SEQUENCE_LENG	=	64,
 					PRESET_SEQUENCE			=	64'h00_01_02_03_04_05_06_07,
-					DATA_BYTE_SHIFT			=	5
+					DATA_BYTE_SHIFT			=	5,
+					AXIS_DATA_WIDTH			=	256		
+	`ifndef PS_ENABLE
+	`define			PS_ENABLE			1
+	`endif
 ) (
 	input								clk,
 	input								rst_n,
@@ -32,6 +36,14 @@ module ThresholdCutterWindow #(
 	input								data_wen,
 
 	output		[WINDOW_DEPTH - 1:0]	flag_o,
+
+	// for AXIS
+	// `ifdef PS_ENABLE
+	output	reg							transmit_vld						,
+	output	reg	[AXIS_DATA_WIDTH - 1:0]	transmit_data						,
+	output	reg							transmit_last						,
+	input								transmit_rdy						,
+	// `endif
 
 	// for debug_AXI_reader
 	output	reg							AXI_reader_read_start,
@@ -249,11 +261,17 @@ module ThresholdCutterWindow #(
 			// output
 			AXI_reader_read_start <= 1'b0;
 			AXI_reader_axi_araddr_start <= 32'b0;
+			// `ifdef PS_ENABLE
+			// for AXIS
+			transmit_vld <= 1'b0;
+			transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+			transmit_last <= 1'b0;
+			// `endif
 			end
 		else
 			begin
 			data_wen_delay <= data_wen;
-			if (!AXI_reader_transmit_done)
+			/*if (!AXI_reader_transmit_done)
 				begin
 				// do nothing
 				// state
@@ -278,10 +296,16 @@ module ThresholdCutterWindow #(
 				AXI_reader_read_start <= 1'b0;
 				AXI_reader_axi_araddr_start <= 32'b0;
 				end
-			else
+			else*/
 			case (ThresholdCutterWindow_state)
 				ThresholdCutterWindow_IDLE:
 					begin
+					// `ifdef PS_ENABLE
+					// for AXIS
+					transmit_vld <= 1'b0;
+					transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+					transmit_last <= 1'b0;
+					// `endif
 					if (data_wen)		// write data
 						begin
 						// window_data
@@ -405,8 +429,16 @@ module ThresholdCutterWindow #(
 						end
 					else
 						begin
+						// `ifdef PS_ENABLE
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_AXIS;
+						// inner signals
+						ThresholdCutterWindow_delay <= 1'b0;
+						ThresholdCutterWindow_cnt <= 3'b0;
+						/*`else
 						// state
 						ThresholdCutterWindow_state <= ThresholdCutterWindow_WRITE;
+						`endif*/
 						end
 					end
 				ThresholdCutterWindow_WRITE:
@@ -491,6 +523,19 @@ module ThresholdCutterWindow #(
 							// inner signals, window_data & ptr do not change
 							block_ptr <= block_ptr + 1'b1;
 							ThresholdCutterWindow_delay <= 1'b1;
+							// `ifdef PS_ENABLE
+							// for AXIS
+							transmit_vld <= 1'b1;
+							transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+							if (block_ptr == `BLOCK_DEPTH - 1)
+								begin
+								transmit_last <= 1'b1;
+								end
+							else
+								begin
+								transmit_last <= 1'b0;
+								end
+							/*`else
 							// for bram
 							bram_wen <= 1'b1;
 							bram_data_i <= {{(WINDOW_WIDTH - `BLOCK_DEPTH_INDEX){1'b0}}, block_ptr};
@@ -499,9 +544,31 @@ module ThresholdCutterWindow #(
 								// state
 								ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
 								end
+							`endif*/
 							end
 						else
 							begin
+							// `ifdef PS_ENABLE
+							transmit_vld <= 1'b0;
+							// transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+							transmit_last <= 1'b0;
+							if (ThresholdCutterWindow_cnt == 3'b001)
+								begin
+								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+								end
+							else
+								begin
+								if (transmit_rdy)
+									begin
+									ThresholdCutterWindow_cnt <= 3'b0;
+									if (block_ptr == `BLOCK_DEPTH)
+										begin
+										// state
+										ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+										end
+									end
+								end
+							/*`else
 							// inner signals
 							if (ThresholdCutterWindow_cnt == 3'b010)
 								begin
@@ -519,6 +586,7 @@ module ThresholdCutterWindow #(
 								begin
 								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
 								end
+							`endif*/
 							end
 						end
 					end
@@ -551,8 +619,68 @@ module ThresholdCutterWindow #(
 					AXI_reader_read_start <= 1'b1;
 					AXI_reader_axi_araddr_start <= 32'b0;
 					end
+				ThresholdCutterWindow_AXIS:
+					begin
+					if (ThresholdCutterWindow_cnt == 3'b0)
+						begin
+						// inner signals
+						ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+						ThresholdCutterWindow_delay <= 1'b1;
+						// `ifdef PS_ENABLE
+						// for AXIS
+						transmit_vld <= 1'b1;
+						transmit_data <= window_data_data_o;
+						if (block_ptr == `BLOCK_DEPTH)
+							begin
+							transmit_last <= 1'b1;
+							end
+						else
+							begin
+							transmit_last <= 1'b0;
+							end
+						// `endif
+						end
+					else
+						begin
+						// `ifdef PS_ENABLE
+						// for AXIS
+						transmit_vld <= 1'b0;
+						// transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+						transmit_last <= 1'b0;
+						if (ThresholdCutterWindow_cnt == 3'b001)
+							begin
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							end
+						else
+							begin
+							if (transmit_rdy)
+								begin
+								if (block_ptr == `BLOCK_DEPTH)
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+									end
+								else
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+									end
+								end
+							end
+						/*`else
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+						`endif*/
+						end
+					end
 				default:
 					begin
+					// `ifdef PS_ENABLE
+					// for AXIS
+					transmit_vld <= 1'b1;
+					transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+					transmit_last <= 1'b0;
+					// `endif
 					// state
 					ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
 					// window_data
@@ -684,5 +812,11 @@ module ThresholdCutterWindow #(
 		assign s_axi_bready = 1'b1;
 		end
 	endgenerate
+
+	// for debug
+	(* mark_debug = "true" *)wire debug_transmit_vld = transmit_vld;
+	(* mark_debug = "true" *)wire [AXIS_DATA_WIDTH - 1:0] debug_transmit_data = transmit_data;
+	(* mark_debug = "true" *)wire debug_transmit_last = transmit_last;
+	(* mark_debug = "true" *)wire [2:0] debug_ThresholdCutterWindow_state = ThresholdCutterWindow_state;
 
 endmodule

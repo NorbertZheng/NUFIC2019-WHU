@@ -45,14 +45,30 @@ module debug_ThresholdCutter #(
 	`endif
 					// parameter for uart_controller
 					TX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
-					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH
+					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
+
+					// parameter for AXIS
+					AXIS_DATA_WIDTH						=	256
+	`ifndef PS_ENABLE
+	`define			PS_ENABLE			1
+	`endif
 ) (
 	input									clk					,
 	input									rst_n				,
 
+	`ifndef PS_ENABLE
 	// uart
 	input									uart_rx				,		// temp useless
 	output									uart_tx				,
+	`endif
+
+	// for AXIS
+	// `ifdef PS_ENABLE
+	output									transmit_vld					,
+	output		[AXIS_DATA_WIDTH - 1:0]		transmit_data					,
+	output									transmit_last					,
+	input									transmit_rdy					,
+	// `endif
 
 	// BlueTooth_Config
 	input									BlueTooth_State		,
@@ -108,6 +124,7 @@ module debug_ThresholdCutter #(
 	wire [1:0] s_axi_rresp;
 	wire s_axi_rlast, s_axi_rvalid, s_axi_rready;
 
+	/*`ifndef PS_ENABLE
 	// PLL
 	pll m_pll (
 		.clk_50m		(clk_50m		),
@@ -115,7 +132,14 @@ module debug_ThresholdCutter #(
 		.locked			(sys_rst_n		),
 		.clk_in1		(clk			)
 	);
+	`else
+	assign clk_50m = clk;
+	assign sys_rst_n = rst_n;
+	`endif*/
+	assign clk_50m = clk;
+	assign sys_rst_n = rst_n;
 
+	`ifndef PS_ENABLE
 	// debug_AXI_reader
 	debug_AXI_reader #(
 		// parameter for data buffer
@@ -163,6 +187,9 @@ module debug_ThresholdCutter #(
 	assign debug_read_start = AXI_reader_read_start;
 	assign debug_AXI_reader_axi_araddr_start = AXI_reader_axi_araddr_start;
 	assign AXI_reader_transmit_done = debug_transmit_done;
+	`else
+	assign AXI_reader_transmit_done = 1'b1;
+	`endif
 
 	// ThresholdCutter
 	ThresholdCutter #(
@@ -198,7 +225,8 @@ module debug_ThresholdCutter #(
 		.PRESET_SEQUENCE(PRESET_SEQUENCE),
 		// parameter for package
 		.PACKAGE_SIZE(PACKAGE_SIZE),
-		.PACKAGE_NUM(PACKAGE_NUM)
+		.PACKAGE_NUM(PACKAGE_NUM),
+		.AXIS_DATA_WIDTH(AXIS_DATA_WIDTH)
 	) m_ThresholdCutter (
 		.clk							(clk_50m						),
 		.rst_n							(sys_rst_n						),
@@ -213,6 +241,13 @@ module debug_ThresholdCutter #(
 
 		// ThresholdCutterWindow signals
 		.ThresholdCutterWindow_flag_o	(ThresholdCutterWindow_flag_o	),
+
+		// `ifdef PS_ENABLE
+		.transmit_vld					(transmit_vld							),
+		.transmit_data					(transmit_data							),
+		.transmit_last					(transmit_last							),
+		.transmit_rdy					(transmit_rdy							),
+		// `endif
 
 		.AXI_reader_read_start			(AXI_reader_read_start					),
 		.AXI_reader_axi_araddr_start	(AXI_reader_axi_araddr_start			),

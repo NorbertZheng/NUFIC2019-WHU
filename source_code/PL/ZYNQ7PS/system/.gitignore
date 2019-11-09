@@ -3,6 +3,7 @@
 /synth
 /ipshared
 /ui
+/hw_handoff
 
 # generated files
 *.bmm
