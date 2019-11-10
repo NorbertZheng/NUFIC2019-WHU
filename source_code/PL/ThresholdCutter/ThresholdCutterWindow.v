@@ -73,14 +73,15 @@ module ThresholdCutterWindow #(
 	input								s_axi_rready
 );
 
-	localparam		ThresholdCutterWindow_IDLE	=	3'b000,
-					ThresholdCutterWindow_READ	=	3'b001,
-					ThresholdCutterWindow_WRITE	=	3'b010,
-					ThresholdCutterWindow_BREAK	=	3'b011,
-					ThresholdCutterWindow_TAG	=	3'b100,
-					ThresholdCutterWindow_END	=	3'b101,
-					ThresholdCutterWindow_WAITRD=	3'b110,
-					ThresholdCutterWindow_AXIS	=	3'b111;
+	localparam		ThresholdCutterWindow_IDLE		=	4'b0000,
+					ThresholdCutterWindow_READ		=	4'b0001,
+					ThresholdCutterWindow_WRITE		=	4'b0010,
+					ThresholdCutterWindow_BREAK		=	4'b0011,
+					ThresholdCutterWindow_TAG		=	4'b0100,
+					ThresholdCutterWindow_END		=	4'b0101,
+					ThresholdCutterWindow_WAITRD	=	4'b0110,
+					ThresholdCutterWindow_AXIS		=	4'b0111,
+					ThresholdCutterWindow_AXISZERO	=	4'b1000;
 
 	// bram signals
 	reg bram_wen;
@@ -233,7 +234,7 @@ module ThresholdCutterWindow #(
 	endgenerate*/
 	assign flag_o = window_tag;
 
-	reg [2:0] ThresholdCutterWindow_state;
+	reg [3:0] ThresholdCutterWindow_state;
 	reg ThresholdCutterWindow_delay;
 	reg [2:0] ThresholdCutterWindow_cnt;
 	always@ (posedge clk)
@@ -367,7 +368,7 @@ module ThresholdCutterWindow #(
 						window_data_wen <= 1'b0;
 						if (data_wen_delay)						// ensure 1-period write, avoid double-write
 							begin
-							if ((block_ptr < `BLOCK_DEPTH) || (block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}}))		// current block is not full, even empty
+							if ((block_ptr < `BLOCK_DEPTH - 1) || (block_ptr == {`BLOCK_DEPTH_INDEX{1'b1}}))		// current block is not full, even empty
 								begin
 								// inner signals, window_data & ptr do not change
 								ThresholdCutterWindow_delay <= 1'b0;
@@ -509,7 +510,8 @@ module ThresholdCutterWindow #(
 						bram_wen <= 1'b0;
 						bram_data_i <= {WINDOW_WIDTH{1'b0}};
 						end
-					else */if (block_ptr < `BLOCK_DEPTH)			// current block is not full, fill it with 32'b0
+					else */
+					if (block_ptr < `BLOCK_DEPTH - 1)			// current block is not full, fill it with 32'b0
 						begin
 						// inner signals
 						valid_cnt <= {WINDOW_DEPTH{1'b0}};
@@ -517,77 +519,16 @@ module ThresholdCutterWindow #(
 						// output
 						AXI_reader_read_start <= 1'b0;
 						AXI_reader_axi_araddr_start <= 32'b0;
-						if (ThresholdCutterWindow_cnt == 3'b000)
-							begin
-							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-							// inner signals, window_data & ptr do not change
-							block_ptr <= block_ptr + 1'b1;
-							ThresholdCutterWindow_delay <= 1'b1;
-							// `ifdef PS_ENABLE
-							// for AXIS
-							transmit_vld <= 1'b1;
-							transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
-							if (block_ptr == `BLOCK_DEPTH - 1)
-								begin
-								transmit_last <= 1'b1;
-								end
-							else
-								begin
-								transmit_last <= 1'b0;
-								end
-							/*`else
-							// for bram
-							bram_wen <= 1'b1;
-							bram_data_i <= {{(WINDOW_WIDTH - `BLOCK_DEPTH_INDEX){1'b0}}, block_ptr};
-							if (block_ptr == `BLOCK_DEPTH - 1)
-								begin
-								// state
-								ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
-								end
-							`endif*/
-							end
-						else
-							begin
-							// `ifdef PS_ENABLE
-							transmit_vld <= 1'b0;
-							// transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
-							transmit_last <= 1'b0;
-							if (ThresholdCutterWindow_cnt == 3'b001)
-								begin
-								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-								end
-							else
-								begin
-								if (transmit_rdy)
-									begin
-									ThresholdCutterWindow_cnt <= 3'b0;
-									if (block_ptr == `BLOCK_DEPTH)
-										begin
-										// state
-										ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
-										end
-									end
-								end
-							/*`else
-							// inner signals
-							if (ThresholdCutterWindow_cnt == 3'b010)
-								begin
-								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-								// for bram
-								bram_wen <= 1'b0;
-								end
-							else if (ThresholdCutterWindow_cnt == 3'b011)
-								begin
-								ThresholdCutterWindow_cnt <= 3'b0;
-								// for bram
-								bram_wen <= 1'b0;
-								end
-							else
-								begin
-								ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-								end
-							`endif*/
-							end
+						ThresholdCutterWindow_cnt <= 3'b0;
+						// inner signals, window_data & ptr do not change
+						block_ptr <= block_ptr + 1'b1;
+						ThresholdCutterWindow_delay <= 1'b1;
+						// for AXIS
+						transmit_vld <= 1'b0;
+						transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+						transmit_last <= 1'b0;
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_AXISZERO;
 						end
 					end
 				ThresholdCutterWindow_TAG:
@@ -630,7 +571,7 @@ module ThresholdCutterWindow #(
 						// for AXIS
 						transmit_vld <= 1'b1;
 						transmit_data <= window_data_data_o;
-						if (block_ptr == `BLOCK_DEPTH)
+						if (block_ptr == `BLOCK_DEPTH - 1)
 							begin
 							transmit_last <= 1'b1;
 							end
@@ -655,7 +596,7 @@ module ThresholdCutterWindow #(
 							begin
 							if (transmit_rdy)
 								begin
-								if (block_ptr == `BLOCK_DEPTH)
+								if (block_ptr == `BLOCK_DEPTH - 1)
 									begin
 									// state
 									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
@@ -664,6 +605,60 @@ module ThresholdCutterWindow #(
 									begin
 									// state
 									ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+									end
+								end
+							end
+						/*`else
+						// state
+						ThresholdCutterWindow_state <= ThresholdCutterWindow_IDLE;
+						`endif*/
+						end
+					end
+				ThresholdCutterWindow_AXISZERO:
+					begin
+					if (ThresholdCutterWindow_cnt == 3'b0)
+						begin
+						// inner signals
+						ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+						ThresholdCutterWindow_delay <= 1'b1;
+						// `ifdef PS_ENABLE
+						// for AXIS
+						transmit_vld <= 1'b1;
+						transmit_data <= {AXIS_DATA_WIDTH{1'b1}};
+						if (block_ptr == `BLOCK_DEPTH - 1)
+							begin
+							transmit_last <= 1'b1;
+							end
+						else
+							begin
+							transmit_last <= 1'b0;
+							end
+						// `endif
+						end
+					else
+						begin
+						// `ifdef PS_ENABLE
+						// for AXIS
+						transmit_vld <= 1'b0;
+						// transmit_data <= {AXIS_DATA_WIDTH{1'b0}};
+						transmit_last <= 1'b0;
+						if (ThresholdCutterWindow_cnt == 3'b001)
+							begin
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							end
+						else
+							begin
+							if (transmit_rdy)
+								begin
+								if (block_ptr == `BLOCK_DEPTH - 1)
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_TAG;
+									end
+								else
+									begin
+									// state
+									ThresholdCutterWindow_state <= ThresholdCutterWindow_BREAK;
 									end
 								end
 							end

@@ -1,7 +1,7 @@
 //Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 //--------------------------------------------------------------------------------
 //Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
-//Date        : Thu Nov  7 12:39:31 2019
+//Date        : Mon Nov 11 01:07:12 2019
 //Host        : DESKTOP-HFH0Q47 running 64-bit major release  (build 9200)
 //Command     : generate_target system_wrapper.bd
 //Design      : system_wrapper
@@ -31,6 +31,7 @@ module system_wrapper
     FIXED_IO_ps_clk,
     FIXED_IO_ps_porb,
     FIXED_IO_ps_srstb,
+    GPIO_0_tri_i,
     S_AXIS_0_tdata,
     S_AXIS_0_tkeep,
     S_AXIS_0_tlast,
@@ -59,6 +60,7 @@ module system_wrapper
   inout FIXED_IO_ps_clk;
   inout FIXED_IO_ps_porb;
   inout FIXED_IO_ps_srstb;
+  input [0:0]GPIO_0_tri_i;
   input [255:0]S_AXIS_0_tdata;
   input [31:0]S_AXIS_0_tkeep;
   input S_AXIS_0_tlast;
@@ -88,6 +90,7 @@ module system_wrapper
   wire FIXED_IO_ps_clk;
   wire FIXED_IO_ps_porb;
   wire FIXED_IO_ps_srstb;
+  wire [0:0]GPIO_0_tri_i;
   wire [255:0]S_AXIS_0_tdata;
   wire [31:0]S_AXIS_0_tkeep;
   wire S_AXIS_0_tlast;
@@ -118,6 +121,7 @@ module system_wrapper
         .FIXED_IO_ps_clk(FIXED_IO_ps_clk),
         .FIXED_IO_ps_porb(FIXED_IO_ps_porb),
         .FIXED_IO_ps_srstb(FIXED_IO_ps_srstb),
+        .GPIO_0_tri_i(GPIO_0_tri_i),
         .S_AXIS_0_tdata(S_AXIS_0_tdata),
         .S_AXIS_0_tkeep(S_AXIS_0_tkeep),
         .S_AXIS_0_tlast(S_AXIS_0_tlast),

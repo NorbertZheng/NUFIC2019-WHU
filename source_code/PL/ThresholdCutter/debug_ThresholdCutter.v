@@ -68,6 +68,7 @@ module debug_ThresholdCutter #(
 	output		[AXIS_DATA_WIDTH - 1:0]		transmit_data					,
 	output									transmit_last					,
 	input									transmit_rdy					,
+	output									read_start_intr					,
 	// `endif
 
 	// BlueTooth_Config
@@ -288,5 +289,7 @@ module debug_ThresholdCutter #(
 	assign AXI_reader_axi_rlast = s_axi_rlast;
 	assign AXI_reader_axi_rvalid = s_axi_rvalid;
 	assign s_axi_rready = AXI_reader_axi_rready;
+
+	assign read_start_intr = AXI_reader_read_start;
 
 endmodule

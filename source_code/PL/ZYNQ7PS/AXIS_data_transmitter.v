@@ -53,7 +53,8 @@ module AXIS_data_transmitter #(
 						AXIS_data_transmitter_state <= AXIS_data_transmitter_TRANSMIT;
 						// inner signals
 						AXIS_data_transmitter_delay <= 2'b0;
-						AXIS_data_transmitter_transmit_last <= transmit_last;
+						// AXIS_data_transmitter_transmit_last <= transmit_last;
+						AXIS_data_transmitter_transmit_last <= 1'b0;
 						AXIS_data_transmitter_transmit_data <= transmit_data;
 						// output
 						transmit_rdy <= 1'b0;		// disable transmit_rdy

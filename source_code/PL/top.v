@@ -70,7 +70,10 @@ module top #(
 	`endif
 					// parameter for uart_controller
 					TX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
-					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH
+					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
+					
+					// parameter for read_intr_generator
+					INTR_PERIOD			=	10
 	`ifndef PS_ENABLE
 	`define			PS_ENABLE			1
 	`endif
@@ -120,8 +123,14 @@ module top #(
 	wire S_AXIS_0_tlast, S_AXIS_0_tready, S_AXIS_0_tvalid;
 	wire [31:0] S_AXIS_0_tkeep;
 	wire [255:0] S_AXIS_0_tdata;
+	// GPIO signals
+	wire GPIO_0_tri_i;
 
-	// AXIS_data_generator signals
+	// read_intr_generator signals
+	wire read_intr_generator_clk, read_intr_generator_rst_n;
+	wire read_intr_generator_read_intr, read_intr_generator_read_start_intr;
+
+	// AXIS_data_transmitter signals
 	wire AXIS_data_transmitter_clk, AXIS_data_transmitter_rst_n;
 	wire AXIS_data_transmitter_transmit_vld, AXIS_data_transmitter_transmit_last, AXIS_data_transmitter_transmit_rdy;
 	wire [AXIS_DATA_WIDTH - 1:0] AXIS_data_transmitter_transmit_data;
@@ -136,7 +145,7 @@ module top #(
 
 	// debug_ThresholdCutter signals
 	wire PL_clk, PL_rst_n;
-	wire PL_transmit_vld, PL_transmit_last, PL_transmit_rdy;
+	wire PL_transmit_vld, PL_transmit_last, PL_transmit_rdy, PL_read_start_intr;
 	wire [AXIS_DATA_WIDTH - 1:0] PL_transmit_data;
 
 	// AXIS_data_transmitter
@@ -160,6 +169,20 @@ module top #(
 		.AXIS_data_transmitter_AXIS_tvalid		(AXIS_data_transmitter_AXIS_tvalid	)
 	);
 
+	// read_intr_generator
+	read_intr_generator #(
+		.INTR_PERIOD(INTR_PERIOD)
+	) m_read_intr_generator (
+		.clk					(read_intr_generator_clk				),
+		.rst_n					(read_intr_generator_rst_n				),
+
+		.read_start_intr		(read_intr_generator_read_start_intr	),
+		.read_intr				(read_intr_generator_read_intr			)
+	);
+	assign read_intr_generator_clk = clk_50M_0;
+	assign read_intr_generator_rst_n = locked_0;
+	assign read_intr_generator_read_start_intr = PL_read_start_intr;
+
 	// system_wrapper
 	system_wrapper m_system_wrapper(.DDR_addr(DDR_addr),
 		.DDR_ba(DDR_ba),		
@@ -182,6 +205,7 @@ module top #(
 		.FIXED_IO_ps_clk(FIXED_IO_ps_clk),
 		.FIXED_IO_ps_porb(FIXED_IO_ps_porb),
 		.FIXED_IO_ps_srstb(FIXED_IO_ps_srstb),
+		.GPIO_0_tri_i(GPIO_0_tri_i),
 		.S_AXIS_0_tdata(S_AXIS_0_tdata),
 		.S_AXIS_0_tkeep(S_AXIS_0_tkeep),
 		.S_AXIS_0_tlast(S_AXIS_0_tlast),
@@ -193,6 +217,7 @@ module top #(
 	assign AXIS_data_transmitter_clk = clk_50M_0;
 	assign AXIS_data_transmitter_rst_n = locked_0;
 	assign AXIS_data_transmitter_AXIS_tready = S_AXIS_0_tready;
+	assign GPIO_0_tri_i = read_intr_generator_read_intr;
 	assign S_AXIS_0_tdata = AXIS_data_transmitter_AXIS_tdata;
 	assign S_AXIS_0_tkeep = AXIS_data_transmitter_AXIS_tkeep;
 	assign S_AXIS_0_tlast = AXIS_data_transmitter_AXIS_tlast;
@@ -255,6 +280,7 @@ module top #(
 		.transmit_data		(PL_transmit_data			),
 		.transmit_last		(PL_transmit_last			),
 		.transmit_rdy		(PL_transmit_rdy			),
+		.read_start_intr	(PL_read_start_intr			),
 		// `endif
 
 		// BlueTooth_Config

@@ -1,0 +1,14 @@
+# dir
+/hdl
+/sim
+/synth
+
+# generated files
+*.vho
+*.v
+*.veo
+*.vhdl
+*.xci
+*.xdc
+*.xml
+*.log
