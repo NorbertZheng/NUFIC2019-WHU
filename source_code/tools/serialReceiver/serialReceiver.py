@@ -13,8 +13,8 @@ else:
 	import os
 	import re
 
-n_packageblock = 400
-n_block = 416
+n_packageblock = 800	# 400
+n_block = 816			# 416
 block_size = 32
 n_packageblock_bytes = n_packageblock * block_size
 n_block_bytes = n_block * block_size
@@ -238,7 +238,7 @@ class Serial(object):
 			print(self.timestamp)
 		'''
 		self.currTimestamp = time.time()
-		if ((self.currTimestamp - self.timestamp) > 5):
+		if ((self.currTimestamp - self.timestamp) > 7):
 			self.serial_receive_data = []
 		# print([hex(x)[2:].zfill(2) for x in data])
 		self.serial_receive_data.extend([hex(x)[2:].zfill(2) for x in data])
