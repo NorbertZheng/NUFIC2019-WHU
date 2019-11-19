@@ -5,7 +5,7 @@ __author__ = 'Fassial'
 __copyright__ = 'Copyright 2019, WHU'
 __email__ = 'fassial19991217@gmail.com'
 
-data_size = 400 * 8
+data_size = 200 * 8
 
 def split_by_n(str, n = 4):
 	str_list = [((str[n * i:(n * i + n)] + "_") if (i != (len(str) // n) - 1) else str[n * i:(n * i + n)]) for i in range(len(str) // 4)]
@@ -75,7 +75,11 @@ def print_descriptor_attr(descriptor):
 
 def print_buffer(buffer, data_size = data_size):
 	for i in range(data_size):
-		print('0x' + format(buffer[0][i], '02x').rjust(8,'0'))
+		print('0x' + format(buffer[0][i], '02x').rjust(8,'0'), end = "")
+		if i % 8 == 7:
+			print("")
+		else:
+			print(",", end = "")
 
 def alloc_descriptor(Control, data_size, NDPL = 0x0, NDPU = 0x0, Status = 0x0, APP0 = 0x0, APP1 = 0x0, APP2 = 0x0, APP3 = 0x0, APP4 = 0x0):
 	mmu = Xlnk()
