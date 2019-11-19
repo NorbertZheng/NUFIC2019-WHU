@@ -1,5 +1,6 @@
 module read_intr_generator #(
-	parameter			INTR_PERIOD		=	10
+	parameter			INTR_PERIOD		=	10,
+						INTR_CNT_WIDTH	=	15
 ) (
 	input				clk					,
 	input				rst_n				,
@@ -13,7 +14,7 @@ module read_intr_generator #(
 						read_intr_generator_END			=	2'b10;
 
 	reg [1:0] read_intr_generator_state;
-	reg [4:0] read_intr_generator_cnt;
+	reg [INTR_CNT_WIDTH - 1:0] read_intr_generator_cnt;
 	always@ (posedge clk)
 		begin
 		if (!rst_n)
@@ -21,7 +22,7 @@ module read_intr_generator #(
 			// state
 			read_intr_generator_state <= read_intr_generator_IDLE;
 			// inner sigals
-			read_intr_generator_cnt <= 5'b0;
+			read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 			// output
 			read_intr <= 1'b0;
 			end
@@ -35,7 +36,7 @@ module read_intr_generator #(
 						// state
 						read_intr_generator_state <= read_intr_generator_GENERATE;
 						// inner signals
-						read_intr_generator_cnt <= 5'b0;
+						read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 						// output
 						read_intr <= 1'b1;
 						end
@@ -44,7 +45,7 @@ module read_intr_generator #(
 						// state
 						read_intr_generator_state <= read_intr_generator_IDLE;
 						// inner sigals
-						read_intr_generator_cnt <= 5'b0;
+						read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 						// output
 						read_intr <= 1'b0;
 						end
@@ -63,7 +64,7 @@ module read_intr_generator #(
 						// state
 						read_intr_generator_state <= read_intr_generator_END;
 						// inner signals
-						read_intr_generator_cnt <= 5'b0;
+						read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 						// output
 						read_intr <= 1'b0;
 						end
@@ -82,7 +83,7 @@ module read_intr_generator #(
 						// state
 						read_intr_generator_state <= read_intr_generator_IDLE;
 						// inner signals
-						read_intr_generator_cnt <= 5'b0;
+						read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 						// output
 						read_intr <= 1'b0;
 						end
@@ -92,7 +93,7 @@ module read_intr_generator #(
 					// state
 					read_intr_generator_state <= read_intr_generator_IDLE;
 					// inner sigals
-					read_intr_generator_cnt <= 5'b0;
+					read_intr_generator_cnt <= {INTR_CNT_WIDTH{1'b0}};
 					// output
 					read_intr <= 1'b0;
 					end

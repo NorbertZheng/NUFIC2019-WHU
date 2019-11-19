@@ -45,7 +45,7 @@ module top #(
 					WINDOW_DEPTH_INDEX					=	7,				// support up to 128 windows
 					WINDOW_DEPTH						=	100,			// 100 windows
 					WINDOW_WIDTH						=	(32 << 3),		// 32B window
-					THRESHOLD							=	32'h0002_0000,	// threshold
+					THRESHOLD							=	32'h0008_0000,	// threshold
 					G_THRESHOLD							=	32'h0040_0000,
 					BLOCK_NUM_INDEX						=	0,				// 2 ** 6 == 64 blocks		// 16	// 8
 					// parameter for package
@@ -60,7 +60,7 @@ module top #(
 					PACKAGE_NUM							=	4,
 					// parameter for debug_AXI_reader
 					// parameter for data buffer
-					TOTAL_PACKAGE		=	416,
+					TOTAL_PACKAGE		=	816,		// 416,
 					DATA_DEPTH			=	16,
 					DATA_DEPTH_INDEX	=	4,
 					DATA_BYTE_SHIFT		=	5,
@@ -73,7 +73,8 @@ module top #(
 					RX_DATA_BYTE_WIDTH	=	DATA_BYTE_WIDTH,
 					
 					// parameter for read_intr_generator
-					INTR_PERIOD			=	10
+					INTR_PERIOD			=	1 * 1000 * 1000,
+					INTR_CNT_WIDTH		=	21
 	`ifndef PS_ENABLE
 	`define			PS_ENABLE			1
 	`endif
@@ -171,7 +172,8 @@ module top #(
 
 	// read_intr_generator
 	read_intr_generator #(
-		.INTR_PERIOD(INTR_PERIOD)
+		.INTR_PERIOD(INTR_PERIOD),
+		.INTR_CNT_WIDTH(INTR_CNT_WIDTH)
 	) m_read_intr_generator (
 		.clk					(read_intr_generator_clk				),
 		.rst_n					(read_intr_generator_rst_n				),

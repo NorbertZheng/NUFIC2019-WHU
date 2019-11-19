@@ -9,8 +9,8 @@ module ThresholdCutterWindow #(
 					WINDOW_WIDTH			=	(32 << 3),		// 32B window
 					THRESHOLD				=	32'h0010_0000,	// threshold
 					BLOCK_NUM_INDEX			=	4,				// 2 ** 6 == 64 blocks		// 16
-	`define			BLOCK_DEPTH				(WINDOW_DEPTH << 2)	// 400 package per data
-	`define			BLOCK_DEPTH_INDEX		(WINDOW_DEPTH_INDEX + 2)		// 15 -> 2 ** 15 * 2 ** 2(B) -> 128KB, not related with BLOCK_DEPTH so much
+	`define			BLOCK_DEPTH				(WINDOW_DEPTH << 3)	// (WINDOW_DEPTH << 2)	// 400 package per data
+	`define			BLOCK_DEPTH_INDEX		(WINDOW_DEPTH_INDEX + 3)	// (WINDOW_DEPTH_INDEX + 2)		// 15 -> 2 ** 15 * 2 ** 2(B) -> 128KB, not related with BLOCK_DEPTH so much
 					// parameter for package
 					A_OFFSET				=	2,				// A's offset
 	`define			A_BYTE_OFFSET			(A_OFFSET << 3)
@@ -564,14 +564,27 @@ module ThresholdCutterWindow #(
 					begin
 					if (ThresholdCutterWindow_cnt == 3'b0)
 						begin
-						// inner signals
-						ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-						ThresholdCutterWindow_delay <= 1'b1;
-						// `ifdef PS_ENABLE
-						// for AXIS
-						transmit_vld <= 1'b1;
-						transmit_data <= window_data_data_o;
-						if (block_ptr == `BLOCK_DEPTH - 1)
+						if (block_ptr[1:0] == 2'b00)
+							begin
+							// inner signals
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							ThresholdCutterWindow_delay <= 1'b1;
+							// `ifdef PS_ENABLE
+							// for AXIS
+							transmit_vld <= 1'b1;
+							transmit_data <= window_data_data_o;
+							end
+						else
+							begin
+							// inner signals
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							ThresholdCutterWindow_delay <= 1'b1;
+							// `ifdef PS_ENABLE
+							// for AXIS
+							transmit_vld <= 1'b0;
+							transmit_data <= window_data_data_o;
+							end
+						if (block_ptr == `BLOCK_DEPTH - 4)		// (block_ptr == `BLOCK_DEPTH - 1)
 							begin
 							transmit_last <= 1'b1;
 							end
@@ -618,14 +631,27 @@ module ThresholdCutterWindow #(
 					begin
 					if (ThresholdCutterWindow_cnt == 3'b0)
 						begin
-						// inner signals
-						ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
-						ThresholdCutterWindow_delay <= 1'b1;
-						// `ifdef PS_ENABLE
-						// for AXIS
-						transmit_vld <= 1'b1;
-						transmit_data <= {AXIS_DATA_WIDTH{1'b1}};
-						if (block_ptr == `BLOCK_DEPTH - 1)
+						if (block_ptr[1:0] == 2'b00)
+							begin
+							// inner signals
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							ThresholdCutterWindow_delay <= 1'b1;
+							// `ifdef PS_ENABLE
+							// for AXIS
+							transmit_vld <= 1'b1;
+							transmit_data <= {AXIS_DATA_WIDTH{1'b1}};
+							end
+						else
+							begin
+							// inner signals
+							ThresholdCutterWindow_cnt <= ThresholdCutterWindow_cnt + 1'b1;
+							ThresholdCutterWindow_delay <= 1'b1;
+							// `ifdef PS_ENABLE
+							// for AXIS
+							transmit_vld <= 1'b0;
+							transmit_data <= {AXIS_DATA_WIDTH{1'b1}};
+							end
+						if (block_ptr == `BLOCK_DEPTH - 4)	// (block_ptr == `BLOCK_DEPTH - 1)
 							begin
 							transmit_last <= 1'b1;
 							end
